@@ -75,6 +75,9 @@ void System::Init(const ConfigFile& conf) {
         cupsConfig->lastSelectedCupButtonIdx = last & 1;
     }
 
+        static char* pulMagic = reinterpret_cast<char*>(0x800017CC);
+        strcpy(pulMagic, "PUL2");
+
     //Track blocking 
     u32 trackBlocking = this->info.GetTrackBlocking();
     this->netMgr.lastTracks = new PulsarId[trackBlocking];
@@ -154,7 +157,7 @@ void System::UpdateContext() {
                     isFeather &= newContext & (1 << PULSAR_FEATHER);
                 }
                 break;
-            default: isCT = false;
+            default: isCT = true;
         }
     }
     else {
@@ -229,6 +232,10 @@ kmWrite32(0x80549974, 0x38600001);
 
 //Skip ESRB page
 kmRegionWrite32(0x80604094, 0x4800001c, 'E');
+
+// VanzaKart WWFC pack identification
+kmWrite32(0x800017D0, 0x68);   // pack_id
+kmWrite32(0x800017D4, 110);      // pack_version
 
 const char System::pulsarString[] = "/Pulsar";
 const char System::CommonAssets[] = "/CommonAssets.szs";
