@@ -1,7 +1,7 @@
 #include <kamek.hpp>
 
 
-//SectionLoadHook* SectionLoadHook::sHooks = nullptr;
+SectionLoadHook* SectionLoadHook::sHooks = nullptr;
 DoFuncsHook* RaceLoadHook::raceLoadHooks = nullptr;
 DoFuncsHook* RaceFrameHook::raceFrameHooks = nullptr;
 
@@ -23,5 +23,5 @@ kmCall(0x80543bb4, BootHook::Exec); //800074d4
 kmBranch(0x80554728, RaceLoadHook::Exec);
 kmBranch(0x8053369c, RaceFrameHook::Exec); //Raceinfo::Update()
 
-//kmBranch(0x8063507c, SectionLoadHook::exec);
+kmBranch(0x8063507c, SectionLoadHook::Exec);
 
