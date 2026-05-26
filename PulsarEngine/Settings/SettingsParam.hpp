@@ -10,7 +10,7 @@ namespace Settings {
 
 class Params {
 public:
-    static const int pulsarPageCount = 5;
+    static const int pulsarPageCount = 7; 
     static const int userPageCount = 0;
     static const int pageCount = pulsarPageCount + userPageCount;
 
@@ -29,6 +29,7 @@ public:
 enum Type {
     SETTINGSTYPE_MENU,
     SETTINGSTYPE_RACE,
+    SETTINGSTYPE_RACE1,
     SETTINGSTYPE_HOST,
     SETTINGSTYPE_OTT,
     SETTINGSTYPE_KO,
@@ -59,6 +60,11 @@ enum RaceSettings {
     SETTINGRACE_RADIO_SOM,
 
     SETTINGRACE_SCROLL_SOM = 0 + 6
+};
+
+enum Race1settings {
+    SETTINGRACE1_RADIO_FPS = 0, 
+    SETTINGRACE1_SCROLL_SOM = 0 + 6
 };
 
 enum HostSettings {
@@ -115,6 +121,11 @@ enum MenuSettingBoot {
     MENUSETTING_BOOT_L4
 };
 
+//MENU_1 SETTINGS
+enum MenuSettingFPS {
+    MENUSETTING_FPS_60 = 0x0,
+    MENUSETTING_FPS_30 = 0x1
+};
 //RACE SETTINGS
 enum RaceSettingMII {
     RACESETTING_MII_DISABLED = 0x0,
