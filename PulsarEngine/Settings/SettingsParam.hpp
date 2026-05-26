@@ -10,7 +10,7 @@ namespace Settings {
 
 class Params {
 public:
-    static const int pulsarPageCount = 7; 
+    static const int pulsarPageCount = 6; 
     static const int userPageCount = 0;
     static const int pageCount = pulsarPageCount + userPageCount;
 
