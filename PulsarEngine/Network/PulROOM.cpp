@@ -29,6 +29,18 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
     PulROOM* destPacket = packetHolder->packet;
     if (destPacket->messageType == 1 && sub.localAid == sub.hostAid) {
         packetHolder->packetSize += sizeof(PulROOM) - sizeof(RKNet::ROOMPacket); //this has been changed by copy so it's safe to do this
+
+        // Save original message before remapping.
+        // Messages 4 and 5 are OPT WW and OTT WW starts (added by ExpFroomMessages).
+        // Remap them to 0 so the base game handles them as a normal VS start.
+        const u8 originalMessage = destPacket->message;
+        if (originalMessage >= 4 && originalMessage <= 9) {
+            destPacket->message = 0;
+        }
+
+        const u8 isStartVKWW = (originalMessage == 4);
+        const u8 isStartOTWW  = (originalMessage == 5);
+
         const Settings::Mgr& settings = Settings::Mgr::Get();
 
         const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED) && destPacket->message == 0; //KO only enabled for normal GPs
@@ -39,7 +51,9 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             | (settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS) ^ true) << PULSAR_UMTS //ott umts
             | koSetting << PULSAR_MODE_KO
             | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
-            | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW;
+            | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
+            | isStartVKWW << PULSAR_STARTVKWW   // OPT WW start from friend room
+            | isStartOTWW  << PULSAR_STARTOTTWW;  // OTT WW start from friend room
 
         u8 raceCount;
         if (koSetting == KOSETTING_ENABLED) raceCount = 0xFE;
@@ -77,9 +91,17 @@ static void AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder,
     asm(mr packet, r28;);
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
+    Pulsar::System* system = Pulsar::System::sInstance;
     //START msg sent by the host, size check should always be guaranteed in theory
     if (src.messageType == 1 && sub.localAid != sub.hostAid && packetHolder->packetSize == sizeof(PulROOM)) {
         ConvertROOMPacketToData(src);
+
+        // Apply OPT WW / OTT WW contexts locally on all non-host clients.
+        // The host packed these into hostSystemContext in BeforeROOMSend.
+        const u32 hostContext = src.hostSystemContext;
+        const bool isStartVKWW = hostContext & (1 << PULSAR_STARTVKWW);
+        const bool isStartOTWW  = hostContext & (1 << PULSAR_STARTOTTWW);
+        system->SetContext((isStartVKWW << PULSAR_STARTVKWW) | (isStartOTWW << PULSAR_STARTOTTWW));
 
         //Also exit the settings page to prevent weird graphical artefacts
         Page* topPage = SectionMgr::sInstance->curSection->GetTopLayerPage();
@@ -92,63 +114,6 @@ static void AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder,
     memcpy(packet, &src, sizeof(RKNet::ROOMPacket)); //default
 }
 kmCall(0x8065add8, AfterROOMReception);
-
-/*
-//ROOMPacket bits arrangement: 0-4 GPraces
-//u8 racesPerGP = 0;
-
-
-
-//Adds the settings to the free bits of the packet, only called for the host, msgType1 has 14 free bits as the game only has 4 gamemodes
-void SetAllToSendPackets(RKNet::ROOMHandler& roomHandler, u32 packetArg) {
-    RKNet::ROOMPacketReg packetReg ={ packetArg };
-    const RKNet::Controller* controller = RKNet::Controller::sInstance;
-    const u8 localAid = controller->subs[controller->currentSub].localAid;
-    Pulsar::System* system = Pulsar::System::sInstance;
-    if((packetReg.packet.messageType) == 1 && localAid == controller->subs[controller->currentSub].hostAid) {
-        const u8 hostParam = Settings::Mgr::GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS);
-        packetReg.packet.message |= hostParam << 2; //uses bit 2 of message
-
-        const u8 gpParam = Settings::Mgr::GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_SCROLL_GP_RACES);
-        const u8 disableMiiHeads = Settings::Mgr::GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS);
-        packetReg.packet.message |= gpParam << 3; //uses bits 3-5
-        packetReg.packet.message |= disableMiiHeads << 6; //uses bit 6
-        packetReg.packet.message |= Settings::Mgr::GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ONLINE) << 7; //7 for OTT
-        packetReg.packet.message |= Settings::Mgr::GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED) << 8; //8 for KO
-
-        ConvertROOMPacketToData(packetReg.packet.message >> 2); //5 right now (2-8) + 1 reserved (9)
-        packetReg.packet.message |= (System::sInstance->SetPackROOMMsg() << 0xA & 0b1111110000000000); //6 bits for packs (10-15)
-    }
-    for(int i = 0; i < 12; ++i) if(i != localAid) roomHandler.toSendPackets[i] = packetReg.packet;
-}
-kmBranch(0x8065ae70, SetAllToSendPackets);
-//kmCall(0x805dce34, SetAllToSendPackets);
-//kmCall(0x805dcd2c, SetAllToSendPackets);
-//kmCall(0x805d9fe8, SetAllToSendPackets);
-
-//Non-hosts extract the setting, store it and then return the packet without these bits
-RKNet::ROOMPacket GetParamFromPacket(u32 packetArg, u8 aidOfSender) {
-    RKNet::ROOMPacketReg packetReg ={ packetArg };
-    if(packetReg.packet.messageType == 1) {
-        const RKNet::Controller* controller = RKNet::Controller::sInstance;
-        //Seeky's code to prevent guests from start the GP
-        if(controller->subs[controller->currentSub].hostAid != aidOfSender) packetReg.packet.messageType = 0;
-        else {
-            ConvertROOMPacketToData((packetReg.packet.message & 0b0000001111111100) >> 2);
-            System::sInstance->ParsePackROOMMsg(packetReg.packet.message >> 0xA);
-        }
-        packetReg.packet.message &= 0x3;
-        Page* topPage = SectionMgr::sInstance->curSection->GetTopLayerPage();
-        PageId topId = topPage->pageId;
-        if(topId == UI::SettingsPanel::id) {
-            UI::SettingsPanel* panel = static_cast<UI::SettingsPanel*>(topPage);
-            panel->OnBackPress(0);
-        }
-    }
-    return packetReg.packet;
-}
-kmBranch(0x8065af70, GetParamFromPacket);
-*/
 
 //Implements that setting
 kmCall(0x806460B8, System::GetRaceCount);
