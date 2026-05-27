@@ -109,6 +109,13 @@ struct GetReverseBuddiesListResponseArg {
     UniqueMatch* matches;
 };
 
+typedef struct {
+    u8 _0x000[0x210 - 0x000];
+    IBuffer outputBuffer;
+    u8 _0x220[0x5E0 - 0x220];
+    IBuffer updateproBuffer;
+} IConnection;
+
 }//namespace GP
 
 
