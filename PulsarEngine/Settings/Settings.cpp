@@ -361,6 +361,18 @@ Binary* Mgr::CreateFromOld(const Binary* old) {
 
         // Migrate old settings for version <= 4
         if(version <= 4) {
+            if(oldPulsarPageCount > SETTINGSTYPE_HOST) {
+                const Page oldHost = oldPagesPtr[SETTINGSTYPE_HOST];
+                Page& newHost = pages.pages[SETTINGSTYPE_HOST];
+
+                newHost.settings[SETTINGHOST_RADIO_MOGI] = HOSTSETTING_MOGI_DISABLED;
+                newHost.settings[SETTINGHOST_RADIO_HOSTWINS] = oldHost.settings[0];
+                newHost.settings[SETTINGHOST_RADIO_CC] = oldHost.settings[1];
+                newHost.settings[SETTINGHOST_ALLOW_MIIHEADS] = oldHost.settings[2];
+                newHost.settings[SETTINGHOST_RADIO_THUNDERCLOUD] = oldHost.settings[3];
+                newHost.settings[SETTINGHOST_SCROLL_GP_RACES] = oldHost.settings[6];
+            }
+
             // 1. Migrate FPS setting from old page 5 (SETTINGSTYPE_FPS) index 0 to new page 1 (SETTINGSTYPE_RACE) index 3
             if(oldPulsarPageCount >= 6) {
                 pages.pages[SETTINGSTYPE_RACE].settings[3] = oldPagesPtr[5].settings[0];
@@ -436,5 +448,4 @@ kmCall(0x805bd2ac, Mgr::SaveGPResult);
 
 } //namespace Settings
 } //namespace Pulsar
-
 

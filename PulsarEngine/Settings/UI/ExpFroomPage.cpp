@@ -9,7 +9,7 @@
 namespace Pulsar {
 namespace UI {
 
-kmWrite32(0x805d8260, 0x60000000); //nop initcontrolgroup
+kmWrite32(0x805d8260, 0x60000000); //nop the vanilla InitControlGroup; ExpFroom allocates the larger group
 
 ExpFroom::ExpFroom() : areControlsHidden(false) {
     this->onSettingsClickHandler.subject = this;

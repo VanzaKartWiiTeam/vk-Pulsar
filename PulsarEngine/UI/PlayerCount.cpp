@@ -104,6 +104,7 @@ void GetRegionParamsFromString(const char* region, char* outputRegion, u32& outp
 
 static ServerBrowser playerCntSB = nullptr;
 static bool isHookedRequest = false;
+static bool isInternalPlayerCountRequest = false;
 static float hookLocalTimer = 0.0f;
 static bool hasRKNetRequestFinished = true;
 
@@ -219,8 +220,16 @@ void StartRequestTask(void* arg) {
             false,
             sbCallback,
             nullptr);
-        ServerBrowserLimitUpdateA(playerCntSB, false, false, basicFields, sizeof(basicFields), "gamename = \"mariokartwii\"", 256);
-        ServerBrowserFree(playerCntSB);
+        if (playerCntSB != nullptr) {
+            isInternalPlayerCountRequest = true;
+            ServerBrowserLimitUpdateA(playerCntSB, false, false, basicFields, sizeof(basicFields), "gamename = \"mariokartwii\"", 256);
+            isInternalPlayerCountRequest = false;
+            ServerBrowserFree(playerCntSB);
+            playerCntSB = nullptr;
+        }
+        isInternalPlayerCountRequest = false;
+        isHookedRequest = false;
+        hasRKNetRequestFinished = true;
     }
 }
 
@@ -229,10 +238,12 @@ int hook_ServerBrowserLimitUpdateA(ServerBrowser sb, bool async,
                                    const unsigned char* basicFields,
                                    int numBasicFields,
                                    const char* serverFilter, int maxServers) {
-    while (isHookedRequest)
-        msleep(10);
+    if (!isInternalPlayerCountRequest) {
+        while (isHookedRequest)
+            msleep(10);
 
-    hasRKNetRequestFinished = false;
+        hasRKNetRequestFinished = false;
+    }
 
     unsigned char newFields[64];
     int newNumFields = 0;

@@ -18,5 +18,4 @@ echo Linking... %time%
 "../KamekLinker/Kamek.exe" "build/mkw.o" "build/kamek.o" -static=0x80004000 -output-code=Loader.pul
 
 :end
-Pause
 ENDLOCAL

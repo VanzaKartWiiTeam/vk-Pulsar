@@ -23,6 +23,7 @@ KamekLinker\.vs/
 \KamekLinker\obh
 KamekLinker/obh/
 KamekLinker\obj/
+compile_and_link.py
 
 # Compiled Object files
 *.slo

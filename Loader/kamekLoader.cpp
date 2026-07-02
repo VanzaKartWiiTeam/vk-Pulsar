@@ -137,7 +137,7 @@ inline void cacheInvalidateAddress(register u32 address) {
 static void LoadKamekBinary(LoaderParams* params, const void* binary, u32 binaryLength, bool isDol) {
     // Todo: Make this prettier
 
-    static u32 text = 0;
+    static u32 text = 0xBAADF00D;
     const KBHeader* header = (const KBHeader*)binary;
     if (header->magic1 != 'Kame' || header->magic2 != 'k\0')
         DisplayError(params, "FATAL ERROR: Corrupted file, please check your game's Kamek files");
@@ -189,13 +189,29 @@ static void LoadKamekBinary(LoaderParams* params, const void* binary, u32 binary
         if (address == 0xFFFFFE) {
             // Absolute address
             address = *((u32*)input);
-            if (address < params->relStart && !isDol)
-                continue;
-            else if (address >= params->relStart && isDol)
-                continue;
             input += 4;
+            bool skip = false;
+            if (address < params->relStart && !isDol)
+                skip = true;
+            else if (address >= params->relStart && isDol)
+                skip = true;
+            if (skip) {
+                if (cmd >= kCondWritePointer && cmd <= kCondWrite8) {
+                    input += 8;
+                } else {
+                    input += 4;
+                }
+                continue;
+            }
         } else {
-            if (!isDol) continue;
+            if (!isDol) {
+                if (cmd >= kCondWritePointer && cmd <= kCondWrite8) {
+                    input += 8;
+                } else {
+                    input += 4;
+                }
+                continue;
+            }
             // Relative address
             address += text;
         }
@@ -261,15 +277,15 @@ static void LoadKamekBinary(LoaderParams* params, const void* binary, u32 binary
 }
 
 void LoadKamekBinaryFromDisc(LoaderParams* params) {
-    static void* codePulBuf = nullptr;
-    static u32 sectionLength = 0;
+    static void* codePulBuf = (void*)-1;
+    static u32 sectionLength = 0xFFFFFFFF;
     params->OSReport("{Kamek by Treeki}\nLoading Kamek binary");
-    static EGG::ExpHeap* codePulHeap = nullptr;
+    static EGG::ExpHeap* codePulHeap = (EGG::ExpHeap*)-1;
 
     bool isDol = false;
     EGG::ExpHeap* heap = params->rkSystem->EGGSystem;
 
-    if (codePulBuf == nullptr) {
+    if (codePulBuf == (void*)-1) {
         const char* path = "/Binaries/Code.pul";
         int entrynum = params->DVDConvertPathToEntrynum(path);
         if (entrynum < 0) {
@@ -292,11 +308,11 @@ void LoadKamekBinaryFromDisc(LoaderParams* params) {
         isDol = true;
         codePulHeap = params->rkSystem->EGGRootMEM2;
         if (codePulHeap != nullptr) codePulBuf = codePulHeap->alloc(roundedLength, -0x20);
-        if (codePulBuf == nullptr) {
+        if (codePulBuf == (void*)-1 || codePulBuf == nullptr) {
             codePulHeap = params->rkSystem->EGGSystem;
             codePulBuf = codePulHeap->alloc(roundedLength, -0x20);
         }
-        if (!codePulBuf) DisplayError(params, "FATAL ERROR: Out of file memory");
+        if (codePulBuf == (void*)-1 || codePulBuf == nullptr) DisplayError(params, "FATAL ERROR: Out of file memory");
         u32 offset = sizeof(u32) * 4;
         u32 region = PAL;
         while (region < params->region) {
@@ -308,5 +324,8 @@ void LoadKamekBinaryFromDisc(LoaderParams* params) {
     }
 
     LoadKamekBinary(params, codePulBuf, sectionLength, isDol);
-    if (!isDol) heap->free(codePulBuf);
+    if (!isDol) {
+        heap->free(codePulBuf);
+        codePulBuf = (void*)-1;
+    }
 }
