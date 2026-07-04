@@ -8,10 +8,107 @@
 #include <SlotExpansion/CupsConfig.hpp>
 #include <SlotExpansion/UI/ExpCupSelect.hpp>
 #include <SlotExpansion/UI/ExpansionUIMisc.hpp>
+#include <Network/PacketExpansion.hpp>
 
 
 namespace Pulsar {
 namespace UI {
+static bool IsGroupedTrack(PulsarId id) {
+    if (CupsConfig::IsReg(id)) return false;
+    const u32 idx = id - 0x100;
+    switch (idx) {
+        case 6:
+        case 9:
+        case 27:
+        case 29:
+        case 31:
+        case 32:
+        case 37:
+        case 51:
+        case 57:
+        case 61:
+        case 63:
+        case 67:
+        case 73:
+        case 76:
+        case 77:
+        case 85:
+            return true;
+        default:
+            if (idx >= 88 && idx <= 103) return true;
+            return false;
+    }
+}
+
+bool IsTrackBlocked(PulsarId id) {
+    System* system = System::sInstance;
+    if (!system || !system->IsContext(PULSAR_CT)) return false;
+
+    const u32 blockingCount = system->GetInfo().GetTrackBlocking();
+    if (blockingCount == 0 || system->netMgr.lastTracks == nullptr) return false;
+
+    for (u32 i = 0; i < blockingCount; ++i) {
+        if (system->netMgr.lastTracks[i] == id) return true;
+    }
+
+    RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if (controller != nullptr &&
+        (controller->roomType == RKNet::ROOMTYPE_JOINING_REGIONAL ||
+         controller->roomType == RKNet::ROOMTYPE_VS_REGIONAL)) {
+        if (IsGroupedTrack(id) && system->netMgr.lastGroupedTrackPlayed) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void RemoveAllEscapeSequences(wchar_t* dest, const wchar_t* src) {
+    while (*src != L'\0') {
+        if (src[0] == 0x001A) {
+            const u8* escapeBytes = reinterpret_cast<const u8*>(src);
+            u8 escapeLength = escapeBytes[2];
+            src = reinterpret_cast<const wchar_t*>(escapeBytes + escapeLength);
+        } else {
+            *dest++ = *src++;
+        }
+    }
+    *dest = L'\0';
+}
+
+static void BuildRainbowTrackName(wchar_t* dest, const wchar_t* src, u32 maxLen) {
+    wchar_t cleanSrc[0x100];
+    RemoveAllEscapeSequences(cleanSrc, src);
+
+    static const u16 colors[] = {
+        0x0017, // Red
+        0x0013, // Orange
+        0x0010, // Yellow
+        0x0033, // Green
+        0x0021, // Cyan
+        0x0031, // Blue
+        0x0040  // Pink/Purple
+    };
+    const u32 numColors = sizeof(colors) / sizeof(colors[0]);
+    u32 colorIdx = 0;
+
+    u32 destIdx = 0;
+    u32 srcIdx = 0;
+
+    while (cleanSrc[srcIdx] != L'\0' && destIdx < maxLen - 5) {
+        wchar_t curChar = cleanSrc[srcIdx++];
+        if (curChar != L' ') {
+            dest[destIdx++] = 0x001A;
+            dest[destIdx++] = 0x0800;
+            dest[destIdx++] = 0x0001;
+            dest[destIdx++] = colors[colorIdx];
+            colorIdx = (colorIdx + 1) % numColors;
+        }
+        dest[destIdx++] = curChar;
+    }
+    dest[destIdx] = L'\0';
+}
+
 //Change brctr names
 kmWrite24(0x808a85ef, 'PUL'); //used by 807e5754
 
@@ -56,6 +153,42 @@ kmWrite32(0x807e6184, 0x7FA3EB78);
 kmCall(0x807e6188, &GetTrackBMGByRowIdx);
 kmWrite32(0x807e6088, 0x7F63DB78);
 kmCall(0x807e608c, GetTrackBMGByRowIdx);
+
+static wchar_t s_blockedCupPreviewBuffer[4][0x100];
+
+static void SetCupPreviewTrackMessageImpl(LayoutUIControl* control, u32 bmgId, const Text::Info* info, u32 trackIdx) {
+    const Pages::CupSelect* cup = SectionMgr::sInstance->curSection->Get<Pages::CupSelect>();
+    PulsarCupId curCupId;
+    if (cup == nullptr) curCupId = PULSARCUPID_FIRSTREG;
+    else curCupId = static_cast<PulsarCupId>(cup->ctrlMenuCupSelectCup.curCupID);
+
+    PulsarId trackId = CupsConfig::sInstance->ConvertTrack_PulsarCupToTrack(curCupId, trackIdx);
+    if (IsTrackBlocked(trackId) && trackIdx < 4) {
+        const wchar_t* originalText = GetCustomMsg(bmgId);
+        if (originalText != nullptr) {
+            BuildRainbowTrackName(s_blockedCupPreviewBuffer[trackIdx], originalText, 0x100);
+            Text::Info blockedInfo;
+            blockedInfo.strings[0] = s_blockedCupPreviewBuffer[trackIdx];
+            control->SetMessage(BMG_TEXT, &blockedInfo);
+            return;
+        }
+    }
+    control->SetMessage(bmgId, info);
+}
+
+static void SetCupPreviewTrackMessage_R27(LayoutUIControl* control, u32 bmgId, const Text::Info* info) {
+    register u32 trackIdx;
+    asm(mr trackIdx, r27;);
+    SetCupPreviewTrackMessageImpl(control, bmgId, info, trackIdx);
+}
+kmCall(0x807e609c, SetCupPreviewTrackMessage_R27);
+
+static void SetCupPreviewTrackMessage_R29(LayoutUIControl* control, u32 bmgId, const Text::Info* info) {
+    register u32 trackIdx;
+    asm(mr trackIdx, r29;);
+    SetCupPreviewTrackMessageImpl(control, bmgId, info, trackIdx);
+}
+kmCall(0x807e6198, SetCupPreviewTrackMessage_R29);
 
 int GetCurTrackBMG() {
     return GetTrackBMGId(CupsConfig::sInstance->GetWinning(), false);
@@ -152,10 +285,32 @@ kmWrite32(0x808415ac, 0x388000ff);
 kmWrite32(0x80643004, 0x3be000ff);
 kmWrite32(0x808394e8, 0x388000ff);
 kmWrite32(0x80644104, 0x3b5b0000);
+static wchar_t s_blockedVoteNameBuffer[12][0x100];
+
+static bool IsVoteTrackBlocked(PulsarId courseVote) {
+    const Network::ExpSELECTHandler& handler = Network::ExpSELECTHandler::Get();
+    if (handler.toSendPacket.pulWinningTrack != 0xFF && handler.toSendPacket.pulWinningTrack == courseVote) return false;
+    return IsTrackBlocked(courseVote);
+}
+
+void SetVoteControlMessage(VoteControl& vote, u32 bmgId, PulsarId courseVote, u32 playerId) {
+    if (IsVoteTrackBlocked(courseVote) && playerId < 12) {
+        const wchar_t* originalText = GetCustomMsg(bmgId);
+        if (originalText != nullptr) {
+            BuildRainbowTrackName(s_blockedVoteNameBuffer[playerId], originalText, 0x100);
+            Text::Info info;
+            info.strings[0] = s_blockedVoteNameBuffer[playerId];
+            vote.SetMessage(BMG_TEXT, &info);
+            return;
+        }
+    }
+}
+
 static void CourseVoteBMG(VoteControl* vote, bool isCourseIdInvalid, PulsarId courseVote, MiiGroup& miiGroup, u32 playerId, bool isLocalPlayer, u32 team) {
     u32 bmgId = courseVote;
     if (bmgId != 0x1101 && bmgId < 0x2498) bmgId = GetTrackBMGId(courseVote, true);
     vote->Fill(isCourseIdInvalid, bmgId, miiGroup, playerId, isLocalPlayer, team);
+    SetVoteControlMessage(*vote, bmgId, courseVote, playerId);
 }
 kmCall(0x806441b8, CourseVoteBMG);
 
@@ -254,6 +409,8 @@ static void ExtCourseSelectCupInitSelf(CtrlMenuCourseSelectCup* courseCups) {
 };
 kmWritePointer(0x808d3190, ExtCourseSelectCupInitSelf); //807e45c0
 
+static wchar_t s_blockedTrackNameBuffer[4][0x100];
+
 static void ExtCourseSelectCourseInitSelf(CtrlMenuCourseSelectCourse* course) {
     const CupsConfig* cupsConfig = CupsConfig::sInstance;
     const Section* curSection = SectionMgr::sInstance->curSection;
@@ -267,8 +424,25 @@ static void ExtCourseSelectCourseInitSelf(CtrlMenuCourseSelectCourse* course) {
         PushButton& curButton = course->courseButtons[i];
         curButton.buttonId = i;
         const u32 bmgId = GetTrackBMGByRowIdx(i);
-        curButton.SetMessage(bmgId);
-        if (cupsConfig->ConvertTrack_PulsarCupToTrack(cupsConfig->lastSelectedCup, i) == cupsConfig->GetSelected()) {
+        
+        PulsarId trackId = cupsConfig->ConvertTrack_PulsarCupToTrack(cupsConfig->lastSelectedCup, i);
+        if (IsTrackBlocked(trackId)) {
+            const wchar_t* originalText = GetCustomMsg(bmgId);
+            if (originalText != nullptr) {
+                BuildRainbowTrackName(s_blockedTrackNameBuffer[i], originalText, 0x100);
+                Text::Info info;
+                info.strings[0] = s_blockedTrackNameBuffer[i];
+                curButton.SetMessage(BMG_TEXT, &info);
+            }
+            else {
+                curButton.SetMessage(bmgId);
+            }
+        }
+        else {
+            curButton.SetMessage(bmgId);
+        }
+
+        if (trackId == cupsConfig->GetSelected()) {
             toSelect = &curButton;
         }
     };
