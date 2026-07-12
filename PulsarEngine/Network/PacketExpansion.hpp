@@ -59,6 +59,9 @@ struct PulROOM : public     RKNet::ROOMPacket {
     u8 curBlockingArrayIdx;  // Current write index in circular buffer
     bool lastGroupedTrackPlayed;
     u16 blockedTracks[12];  // PulsarId array (up to MAX_TRACK_BLOCKING tracks)
+    
+    // Extended Team settings
+    u8 extendedTeams[6]; // 4 bits per AID, they encode the team ID (4 * 12 = 48 bits = 6 bytes)
 };
 
 enum SELECTComboStatus {
@@ -86,6 +89,8 @@ struct PulSELECT : public RKNet::SELECTPacket {
     u8 koPerRace;
     u8 racesPerKO;
     bool alwaysFinal;
+
+    u8 voteVariantIdx[2];
 
     //Track blocking
     u8 blockedTrackCount;  // Number of valid entries in blockedTracks

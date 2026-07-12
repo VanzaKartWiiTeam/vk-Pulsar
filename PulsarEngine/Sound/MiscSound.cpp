@@ -60,22 +60,25 @@ kmWrite32(0x8085a674, 0x60000000); //no use in preparing the TT jingle if you're
 static snd::SoundArchive::SoundType PatchPrepareStreamsBG(snd::SoundArchive& archive, u32 soundId) {
 
     if(soundId == SOUND_ID_KC) {
-        const SectionId section = SectionMgr::sInstance->curSection->sectionId;
+        const Section* curSection = SectionMgr::sInstance->curSection;
+        if(curSection != nullptr) {
+            const SectionId section = curSection->sectionId;
 
-        u8 type = 0;
-        if(section >= SECTION_SINGLE_P_FROM_MENU && section <= SECTION_SINGLE_P_LIST_RACE_GHOST || section == SECTION_LOCAL_MULTIPLAYER) type = 1;
-        else if(section >= SECTION_P1_WIFI && section <= SECTION_P2_WIFI_FROOM_COIN_VOTING) type = 2;
-        if(type != 0) {
-            register Audio::StreamsMgr* streams;
-            asm(mr streams, r30;);
-            snd::StrmSoundHandle strmHandle(streams->curHandle);
-            for(int i = 0; i < 4; ++i) {
-                float volume = 0.0f;
-                if((type == 2 && (i % 3) != 0) || (type == 1 && i == 0)) volume = 1.0f;
-                streams->streamsVolume[i].curValue = volume;
-                strmHandle.SetTrackVolume(1 << i, volume);
+            u8 type = 0;
+            if(section >= SECTION_SINGLE_P_FROM_MENU && section <= SECTION_SINGLE_P_LIST_RACE_GHOST || section == SECTION_LOCAL_MULTIPLAYER) type = 1;
+            else if(section >= SECTION_P1_WIFI && section <= SECTION_P2_WIFI_FROOM_COIN_VOTING) type = 2;
+            if(type != 0) {
+                register Audio::StreamsMgr* streams;
+                asm(mr streams, r30;);
+                snd::StrmSoundHandle strmHandle(streams->curHandle);
+                for(int i = 0; i < 4; ++i) {
+                    float volume = 0.0f;
+                    if((type == 2 && (i % 3) != 0) || (type == 1 && i == 0)) volume = 1.0f;
+                    streams->streamsVolume[i].curValue = volume;
+                    strmHandle.SetTrackVolume(1 << i, volume);
+                }
+                return snd::SoundArchive::SOUND_TYPE_INVALID;
             }
-            return snd::SoundArchive::SOUND_TYPE_INVALID;
         }
     }
     return archive.GetSoundType(soundId);

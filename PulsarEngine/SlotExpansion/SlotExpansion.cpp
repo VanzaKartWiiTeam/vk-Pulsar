@@ -82,6 +82,9 @@ kmWrite32(0x805407d4, 0x48000020); //prevent reuse of szs if same courseId
 //Fixes GP since it usually uses racedata's courseId which only holds the slot
 RacedataScenario* UseCorrectCourse(RacedataScenario* scenario) {
     CupsConfig* cupsConfig = CupsConfig::sInstance;
+    if (cupsConfig == nullptr) {
+        return scenario;
+    }
 
     cupsConfig->SetWinning(cupsConfig->ConvertTrack_PulsarCupToTrack(cupsConfig->lastSelectedCup, scenario->settings.raceNumber));
     scenario->settings.courseId = cupsConfig->GetCorrectTrackSlot();

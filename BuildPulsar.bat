@@ -32,18 +32,25 @@ if "!CC!" == "" (
     exit /b 1
 )
 
-:: CPP Sources
-SET CPPFILES=
-for /R %PULSAR% %%f in (*.cpp) do SET "CPPFILES=%%f !CPPFILES!"
-
 :: Compile CPP
 %CC% %CFLAGS% -c -o "build/kamek.o" "%ENGINE%\kamek.cpp"
+if %ErrorLevel% neq 0 (
+    echo Compilation of kamek.cpp failed
+    exit /b %ErrorLevel%
+)
 %CC% %CFLAGS% -c -o "build/RuntimeWrite.o" "%ENGINE%\RuntimeWrite.cpp"
+if %ErrorLevel% neq 0 (
+    echo Compilation of RuntimeWrite.cpp failed
+    exit /b %ErrorLevel%
+)
 
 SET OBJECTS=
-FOR %%H IN (%CPPFILES%) DO (
-    ::echo "Compiling %%H..."
+for /R %PULSAR% %%H in (*.cpp) do (
     %CC% %CFLAGS% %DEFINE% -c -o "build/%%~nH.o" "%%H"
+    if !ErrorLevel! neq 0 (
+        echo Compilation of %%H failed
+        exit /b !ErrorLevel!
+    )
     SET "OBJECTS=build/%%~nH.o !OBJECTS!"
 )
 

@@ -48,7 +48,9 @@ private:
     }
     void Save();
     void AddTrophy(u32 crc32, TTMode mode);
-    void SetLastSelectedCup(PulsarCupId id) { this->rawBin->GetSection<MiscParams>().lastSelectedCup = id; }
+    void SetLastSelectedCup(PulsarCupId id) {
+        if (this != nullptr && this->rawBin != nullptr) this->rawBin->GetSection<MiscParams>().lastSelectedCup = id;
+    }
 
 public:
     Mgr() : rawBin(nullptr) {}
@@ -57,12 +59,19 @@ public:
     bool HasTrophy(u32 crc32, TTMode mode) const;
     bool HasTrophy(PulsarId id, TTMode mode) const;
     u16 GetTotalTrophyCount(TTMode mode) const { return totalTrophyCount[mode]; }
-    int GetTrophyCount(TTMode mode) const { return this->rawBin->GetSection<TrophiesHolder>().trophyCount[mode]; }
-    PulsarCupId GetSavedSelectedCup() const { return this->rawBin->GetSection<MiscParams>().lastSelectedCup; }
+    int GetTrophyCount(TTMode mode) const {
+        if (this == nullptr || this->rawBin == nullptr) return 0;
+        return this->rawBin->GetSection<TrophiesHolder>().trophyCount[mode];
+    }
+    PulsarCupId GetSavedSelectedCup() const {
+        if (this == nullptr || this->rawBin == nullptr) return static_cast<PulsarCupId>(0);
+        return this->rawBin->GetSection<MiscParams>().lastSelectedCup;
+    }
 
     //GP
     static u8 GetGPStatus(u32 idx, u32 cc) {
         Mgr* mgr = Mgr::sInstance;
+        if (mgr == nullptr || mgr->rawBin == nullptr) return 0;
         GPSection& gp = mgr->rawBin->GetSection<GPSection>();
         return gp.gpStatus[idx].gpCCStatus[cc];
     }
@@ -85,6 +94,7 @@ private:
 
     friend class System;
     friend class UI::SettingsPanel;
+    friend class Ghosts::Mgr;
     //Two ghosts functions which save the settings
     friend bool Ghosts::Mgr::SaveGhost(const RKSYS::LicenseLdbEntry& entry, u32 ldbPosition, bool isFlap);
     friend void Ghosts::Mgr::CreateAndSaveFiles(Ghosts::Mgr* manager);

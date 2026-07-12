@@ -13,6 +13,7 @@
 #include <Config.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 #include <core/egg/DVD/DvdRipper.hpp>
+#include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
 namespace Pulsar {
 
 namespace Network {
@@ -32,6 +33,7 @@ void System::CreateSystem() {
     }
     else system = new System();
     System::sInstance = system;
+    UI::ExtendedTeamManager::CreateInstance(new UI::ExtendedTeamManager());
     ConfigFile& conf = ConfigFile::LoadConfig();
     system->Init(conf);
     prev->BecomeCurrentHeap();
@@ -44,6 +46,12 @@ System::System() :
     heap(RKSystem::mInstance.EGGSystem), taskThread(EGG::TaskThread::Create(8, 0, 0x4000, this->heap)),
     //Modes
     koMgr(nullptr) {
+    customBmgs.bmgFile = nullptr;
+    customBmgs.info = nullptr;
+    customBmgs.data = nullptr;
+    customBmgs.str1Block = nullptr;
+    customBmgs.messageIds = nullptr;
+    rawBmg = nullptr;
 }
 
 void System::Init(const ConfigFile& conf) {
@@ -98,7 +106,7 @@ void System::Init(const ConfigFile& conf) {
     this->netMgr.lastTracks = new PulsarId[trackBlocking];
     for(int i = 0; i < trackBlocking; ++i) this->netMgr.lastTracks[i] = PULSARID_NONE;
     const BMGHeader* const confBMG = &conf.GetSection<PulBMG>().header;
-    this->rawBmg = EGG::Heap::alloc<BMGHeader>(confBMG->fileLength, 0x4, RootScene::sInstance->expHeapGroup.heaps[1]);
+    this->rawBmg = EGG::Heap::alloc<BMGHeader>(confBMG->fileLength, 0x4, this->heap);
     memcpy(this->rawBmg, confBMG, confBMG->fileLength);
     this->customBmgs.Init(*this->rawBmg);
     this->AfterInit();
@@ -132,7 +140,10 @@ void System::InitSettings(const u16* totalTrophyCount) const {
     Settings::Mgr::sInstance = settings;
 }
 
+extern "C" void OSReport(const char* format, ...);
+
 void System::UpdateContext() {
+    OSReport("[Pulsar LOG] UpdateContext: start\n");
     const RacedataSettings& racedataSettings = Racedata::sInstance->menusScenario.settings;
     this->ottMgr.Reset();
     const Settings::Mgr& settings = Settings::Mgr::Get();
@@ -157,10 +168,13 @@ void System::UpdateContext() {
     bool isItemStormActive = false;
     bool isAllItemsCanLand = false;
     bool isKOFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
+    bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
 
     const GameMode mode = racedataSettings.gamemode;
     Network::Mgr& netMgr = this->netMgr;
     const u32 sceneId = GameScene::GetCurrent()->id;
+
+    OSReport("[Pulsar LOG] UpdateContext: sceneId=%d, roomType=%d, mode=%d, isExtendedTeams=%d\n", sceneId, controller->roomType, mode, isExtendedTeams);
 
 
     bool is200 = racedataSettings.engineClass == CC_100 && this->info.Has200cc();
@@ -175,9 +189,30 @@ void System::UpdateContext() {
                 isOTT = netMgr.ownStatusData == true;
                 break;
             case(RKNet::ROOMTYPE_FROOM_HOST):
-            case(RKNet::ROOMTYPE_FROOM_NONHOST):
+            case(RKNet::ROOMTYPE_FROOM_NONHOST): {
                 isCT = mode != MODE_BATTLE && mode != MODE_PUBLIC_BATTLE && mode != MODE_PRIVATE_BATTLE;
-                newContext = netMgr.hostContext;
+                const bool isHost = controller->roomType == RKNet::ROOMTYPE_FROOM_HOST;
+                if (isHost) {
+                    const u8 ottOnline = settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ONLINE);
+                    const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED);
+                    const u8 koFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
+                    const bool isLocalExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+
+                    newContext = (ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT
+                        | (ottOnline == OTTSETTING_ONLINE_FEATHER) << PULSAR_FEATHER
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS) ^ true) << PULSAR_UMTS
+                        | koSetting << PULSAR_MODE_KO
+                        | koFinal << PULSAR_KOFINAL
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
+                        | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
+                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS;
+                    netMgr.hostContext = newContext;
+                    OSReport("[Pulsar LOG] UpdateContext: Host compiled newContext=0x%08X (localTeams=%d)\n", newContext, isLocalExtendedTeams);
+                } else {
+                    newContext = netMgr.hostContext;
+                    OSReport("[Pulsar LOG] UpdateContext: Client read hostContext=0x%08X\n", newContext);
+                }
                 isHAW = newContext & (1 << PULSAR_HAW);
                 isKO = newContext & (1 << PULSAR_MODE_KO);
                 isOTT = newContext & (1 << PULSAR_MODE_OTT);
@@ -191,11 +226,13 @@ void System::UpdateContext() {
                 isItemStormActive = newContext & (1 << PULSAR_ITEMMODESTORM);
                 isAllItemsCanLand = newContext & (1 << PULSAR_ALLITEMSCANLAND);
                 isKOFinal = newContext & (1 << PULSAR_KOFINAL);
+                isExtendedTeams = newContext & (1 << PULSAR_EXTENDEDTEAMS);
                 if(isOTT) {
                     isUMTs &= newContext & (1 << PULSAR_UMTS);
                     isFeather &= newContext & (1 << PULSAR_FEATHER);
                 }
                 break;
+            }
             default: isCT = true;
         }
         if (isRegionalRoom) {
@@ -228,9 +265,11 @@ void System::UpdateContext() {
             | (isItemRainActive << PULSAR_ITEMMODERAIN)
             | (isItemStormActive << PULSAR_ITEMMODESTORM)
             | (isAllItemsCanLand << PULSAR_ALLITEMSCANLAND)
-            | (isKOFinal << PULSAR_KOFINAL);
+            | (isKOFinal << PULSAR_KOFINAL)
+            | (isExtendedTeams << PULSAR_EXTENDEDTEAMS);
     }
     this->context = context;
+    OSReport("[Pulsar LOG] UpdateContext: final context=0x%08X (extendedTeams=%d)\n", context, isExtendedTeams);
 
     //Create temp instances if needed:
     /*
@@ -259,10 +298,12 @@ void System::UpdateContext() {
 
 s32 System::OnSceneEnter(Random& random) {
     System* self = System::sInstance;
-    self->UpdateContext();
-    if(self->IsContext(PULSAR_MODE_OTT)) OTT::AddGhostToVS();
-    if(self->IsContext(PULSAR_HAW) && self->IsContext(PULSAR_MODE_KO) && GameScene::GetCurrent()->id == SCENE_ID_RACE && SectionMgr::sInstance->sectionParams->onlineParams.currentRaceNumber > 0) {
-        KO::HAWChangeData();
+    if (self != nullptr) {
+        self->UpdateContext();
+        if(self->IsContext(PULSAR_MODE_OTT)) OTT::AddGhostToVS();
+        if(self->IsContext(PULSAR_HAW) && self->IsContext(PULSAR_MODE_KO) && GameScene::GetCurrent()->id == SCENE_ID_RACE && SectionMgr::sInstance->sectionParams->onlineParams.currentRaceNumber > 0) {
+            KO::HAWChangeData();
+        }
     }
     return random.NextLimited(8);
 }

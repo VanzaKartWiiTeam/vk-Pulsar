@@ -37,6 +37,9 @@ void EndPlayerRaceHook(Raceinfo* _this, u8 playerIdx) {
     if (!raceData)
         return;
 
+    if (_this->players == nullptr || _this->players[playerIdx] == nullptr)
+        return;
+
     RacedataPlayer* racePlayer = &raceData->racesScenario.players[playerIdx];
     if (racePlayer->playerType == PLAYER_REAL_LOCAL) {
         RKNet::Controller* netController = RKNet::Controller::sInstance;
@@ -50,8 +53,8 @@ void EndPlayerRaceHook(Raceinfo* _this, u8 playerIdx) {
             }
         }
 
-        // If the host could not be found, return immediately
-        if (hostPlayerIdx == -1)
+        // If the host could not be found or player object is null, return immediately
+        if (hostPlayerIdx == -1 || _this->players[hostPlayerIdx] == nullptr)
             return;
 
         // You have dc'd from the host (or the host dc'd), crying cat emoji.
@@ -62,6 +65,8 @@ void EndPlayerRaceHook(Raceinfo* _this, u8 playerIdx) {
             u8 finishedCount = 0;
             u8 disconnectCount = 0;
             for (int i = 0; i < raceData->racesScenario.playerCount; i++) {
+                if (_this->players[i] == nullptr)
+                    continue;
                 if (_this->players[i]->stateFlags & 0x10) {
                     disconnectCount++;
                 } else if (_this->players[i]->stateFlags & 0x02) {
@@ -77,6 +82,8 @@ void EndPlayerRaceHook(Raceinfo* _this, u8 playerIdx) {
         }
 
         Timer* finishTime = _this->players[playerIdx]->raceFinishTime;
+        if (finishTime == nullptr)
+            return;
         float time = (finishTime->minutes * 60.0f) + (finishTime->seconds) + (finishTime->milliseconds / 1000.0f);
 
         char buffer[128];

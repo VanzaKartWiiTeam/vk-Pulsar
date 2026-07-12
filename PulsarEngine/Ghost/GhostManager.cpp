@@ -38,9 +38,16 @@ void Mgr::Init(PulsarId id) {
     const System* system = System::sInstance;
     const CupsConfig* cupsConfig = CupsConfig::sInstance;
     const TTMode ttMode = system->ttMode;
-    cupsConfig->GetTrackGhostFolder(folderPath, id);
+    const u8 variantIdx = cupsConfig->GetCurVariantIdx();
 
-    bool exists = io->FolderExists(folderPath); //Create CRC32 folder
+    if (variantIdx > 0) {
+        char parentPath[IOS::ipcMaxPath];
+        cupsConfig->GetTrackGhostFolder(parentPath, id, 0);
+        if (!io->FolderExists(parentPath)) io->CreateFolder(parentPath);
+    }
+    cupsConfig->GetTrackGhostFolder(folderPath, id, variantIdx);
+
+    bool exists = io->FolderExists(folderPath);
     if(!exists) io->CreateFolder(folderPath);
     char folderModePath[IOS::ipcMaxPath];
     snprintf(folderModePath, IOS::ipcMaxPath, "%s/%s", folderPath, System::ttModeFolders[ttMode]);
@@ -76,12 +83,11 @@ void Mgr::Init(PulsarId id) {
                 this->cb(*decompressed, IS_LOADING_LEADERBOARDS, 0);
             }
             curData.courseId = static_cast<CourseId>(id);
-            if(curData.type == EXPERT_STAFF_GHOST) { //very easy to fake/manipulate, but 0 security so it doesn't matter
-                this->expertGhost.minutes = rkg.header.minutes;
-                this->expertGhost.seconds = rkg.header.seconds;
-                this->expertGhost.milliseconds = rkg.header.milliseconds;
-                this->expertGhost.isActive = true;
-            }
+            curData.type = EXPERT_STAFF_GHOST;
+            this->expertGhost.minutes = rkg.header.minutes;
+            this->expertGhost.seconds = rkg.header.seconds;
+            this->expertGhost.milliseconds = rkg.header.milliseconds;
+            this->expertGhost.isActive = true;
             curData.padding = expertFileIdx;
             if(ttMode <= TTMODE_200 && this->leaderboard.GetFavGhost(ttMode)[0] == '?') this->favGhostFileIndex[ttMode] = expertFileIdx;
         }
@@ -96,6 +102,10 @@ void Mgr::Init(PulsarId id) {
         if(ret > 0 && this->rkg.CheckValidity() && this->GetRKGcrc32(this->rkg) != expertCRC32) {
 
             curData.Init(rkg);
+            if(this->expertGhost.isActive && this->expertGhost > curData.finishTime && system->GetInfo().HasTrophies()) {
+                Settings::Mgr::sInstance->AddTrophy(cupsConfig->GetCRC32(id), ttMode);
+                this->leaderboard.AddTrophy();
+            }
             if(this->cb != nullptr) {
                 rkg.DecompressTo(*decompressed);
                 this->cb(*decompressed, IS_LOADING_LEADERBOARDS, counter);
@@ -134,7 +144,7 @@ void Mgr::Reset() {
 
 void Mgr::SaveLeaderboard() {
     char folderPath[IOS::ipcMaxPath];
-    CupsConfig::sInstance->GetTrackGhostFolder(folderPath, this->pulsarId);
+    CupsConfig::sInstance->GetTrackGhostFolder(folderPath, this->pulsarId, CupsConfig::sInstance->GetCurVariantIdx());
     this->leaderboard.Save(folderPath);
 }
 /*

@@ -21,11 +21,13 @@ extern void ResetTrackBlockingOnRoomEnd();
 // NOTA: il doppio controllo PULSAR_MODE_OTT nel sorgente RR originale
 // sembra un copia-incolla incompleto — il secondo branch è irraggiungibile.
 static void SetRegionId() {
-    if (Pulsar::System::sInstance->IsContext(PULSAR_STARTVKWW))
+    System* system = System::sInstance;
+    if (system == nullptr) return;
+    if (system->IsContext(PULSAR_STARTVKWW))
         REGIONID = 0xCC;
-    else if (Pulsar::System::sInstance->IsContext(PULSAR_STARTOTTWW))
+    else if (system->IsContext(PULSAR_STARTOTTWW))
         REGIONID = 0xCD;
-    else if (Pulsar::System::sInstance->IsContext(PULSAR_STARTITEMRAIN))
+    else if (system->IsContext(PULSAR_STARTITEMRAIN))
         REGIONID = 0x71;
     else {
         RKNet::Controller* controller = RKNet::Controller::sInstance;
@@ -165,9 +167,10 @@ static void SetNextSectionRegionalHook(SectionMgr* sectionMgr, SectionId nextSec
     SetRegionId();
     bool isFroom = RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_FROOM_HOST ||
                    RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_FROOM_NONHOST;
-    if ((Pulsar::System::sInstance->IsContext(PULSAR_STARTVKWW) ||
-         Pulsar::System::sInstance->IsContext(PULSAR_STARTOTTWW) ||
-         Pulsar::System::sInstance->IsContext(PULSAR_STARTITEMRAIN)) && isFroom) {
+    System* system = System::sInstance;
+    if (system != nullptr && (system->IsContext(PULSAR_STARTVKWW) ||
+                              system->IsContext(PULSAR_STARTOTTWW) ||
+                              system->IsContext(PULSAR_STARTITEMRAIN)) && isFroom) {
         static bool hasConverted = false;
         SectionId desiredSection = nextSectionId;
 

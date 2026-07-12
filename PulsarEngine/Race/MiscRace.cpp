@@ -12,6 +12,8 @@ namespace Race {
 static void NonGhostPlayerCount(RacedataScenario& scenario, u8* playerCount, u8* screenCount, u8* localPlayerCount) {
     scenario.ComputePlayerCounts(playerCount, screenCount, localPlayerCount);
     System* system = System::sInstance;
+    if (system == nullptr)
+        return;
     u8 realPlayers = *playerCount;
     if (scenario.settings.gamemode != MODE_TIME_TRIAL) for (int i = 0; i < 12; ++i) if (scenario.players[i].playerType == PLAYER_GHOST) --realPlayers;
     system->nonTTGhostPlayersCount = realPlayers;

@@ -35,7 +35,7 @@ nw4r::ut::FileStream* MusicSlotsExpand(nw4r::snd::DVDSoundArchive* archive, void
 
     const char firstChar = extFilePath[0xC];
     const CupsConfig* cupsConfig = CupsConfig::sInstance;
-    const PulsarId track = cupsConfig->GetWinning();
+    const PulsarId track = cupsConfig == nullptr ? PULSARID_NONE : cupsConfig->GetWinning();
 
     if((firstChar == 'n' || firstChar == 'S' || firstChar == 'r')) {
         const SectionId section = SectionMgr::sInstance->curSection->sectionId;
@@ -48,7 +48,7 @@ nw4r::ut::FileStream* MusicSlotsExpand(nw4r::snd::DVDSoundArchive* archive, void
             else if(section >= SECTION_P1_WIFI && section <= SECTION_P2_WIFI_FROOM_COIN_VOTING) customBGPath = wifiMusicFile;
         }
         if(customBGPath != nullptr) extFilePath = customBGPath;
-        else if(!CupsConfig::IsReg(track)) {
+        else if(cupsConfig != nullptr && !CupsConfig::IsReg(track)) {
             bool isFinalLap = false;
             register u32 strLength;
             asm(mr strLength, r28;);

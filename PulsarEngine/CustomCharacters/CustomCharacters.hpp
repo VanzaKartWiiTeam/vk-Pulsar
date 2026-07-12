@@ -3,6 +3,8 @@
 
 #include <kamek.hpp>
 
+class LayoutUIControl;
+
 namespace Pulsar {
 namespace CustomCharacters {
 
@@ -14,6 +16,10 @@ inline const char* GetLooseVoicePostfixForGroup(u32 groupId, const char*& groupS
     groupSuffix = nullptr;
     voiceName = nullptr;
     return nullptr;
+}
+
+inline bool SetRaceNameTextIfCustom(LayoutUIControl& control, const char* paneName, u8 playerId) {
+    return false;
 }
 
 } // namespace CustomCharacters

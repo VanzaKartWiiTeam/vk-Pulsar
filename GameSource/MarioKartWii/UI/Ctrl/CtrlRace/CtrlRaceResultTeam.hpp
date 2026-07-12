@@ -22,7 +22,7 @@ public:
     struct Player {
         u32 battleScore; //0x174 from RaceinfoPlayer
         u32 prevBattleScore; //0x178
-        float unknown; //0x178
+        float prevBattleScoreFloat; //0x17c
         u32 playerIdx; //0x180
     }; //0x14
 

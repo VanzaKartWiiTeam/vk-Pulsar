@@ -317,6 +317,10 @@ const Text::Info GetCourseBottomText(PulsarId id, u32* bmgId) {
     return text;
 }
 
+const Text::Info GetCourseBottomText(PulsarId id, u8 variantIdx, u32* bmgId) {
+    return GetCourseBottomText(id, bmgId);
+}
+
 void SetRankingsBMG() {
 
 }

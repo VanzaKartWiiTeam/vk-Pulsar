@@ -41,9 +41,10 @@ void AddGhostToVS() {
         if (cc == CC_100 && !system->GetInfo().Has200cc()) return;
 
         char folderPath[IOS::ipcMaxPath];
-        const PulsarId id = CupsConfig::sInstance->GetWinning();
         const CupsConfig* cupsConfig = CupsConfig::sInstance;
-        cupsConfig->GetTrackGhostFolder(folderPath, id);
+        if (cupsConfig == nullptr) return;
+        const PulsarId id = cupsConfig->GetWinning();
+        cupsConfig->GetTrackGhostFolder(folderPath, id, cupsConfig->GetCurVariantIdx());
 
         alignas(0x20) Ghosts::Leaderboard leaderboard(folderPath, id, false);
         const TTMode ttMode = static_cast<TTMode>(racedata->menusScenario.settings.engineClass % 2 + 2 * system->IsContext(PULSAR_FEATHER));

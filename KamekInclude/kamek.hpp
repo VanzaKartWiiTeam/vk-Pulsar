@@ -266,11 +266,16 @@ public:
     typedef void (Func)();
     Func* func;
     nw4r::ut::Link link;
-    static nw4r::ut::List list;
+
+    static nw4r::ut::List& GetList() {
+        static nw4r::ut::List list = { nullptr, nullptr, 0, offsetof(BootHook, link) };
+        return list;
+    }
 
 public:
     BootHook(Func* f, u16 position) {
         this->func = f;
+        nw4r::ut::List& list = GetList();
         Func* obj = (Func*)nw4r::ut::List_GetNth(&list, position);
         if(obj == nullptr || position > list.count) nw4r::ut::List_Append(&list, this);
         else {
@@ -279,6 +284,7 @@ public:
     }
 
     static void Exec() {
+        nw4r::ut::List& list = GetList();
         BootHook* next = nullptr;
         BootHook* cur = (BootHook*)nw4r::ut::List_GetNth(&list, 0);
         for(cur; cur != nullptr; cur = next) {

@@ -88,11 +88,14 @@ void SettingsPanel::OnInit() {
 
     const Settings::Mgr& settings = Settings::Mgr::Get();
     for(int i = 0; i < Settings::Params::pageCount; ++i) {
+        const bool isPulsarPage = i < Settings::Params::pulsarPageCount;
         for(int radioIdx = 0; radioIdx < Settings::Params::radioCount[i]; ++radioIdx) {
-            this->radioSettings[i][radioIdx] = settings.GetSettingValue(static_cast<Settings::Type>(i), radioIdx);
+            this->radioSettings[i][radioIdx] = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), radioIdx)
+                : settings.GetUserSettingValue(static_cast<Settings::UserType>(i - Settings::Params::pulsarPageCount), radioIdx);
         }
         for(int scrollerIdx = 0; scrollerIdx < Settings::Params::scrollerCount[i]; ++scrollerIdx) {
-            this->scrollerSettings[i][scrollerIdx] = settings.GetSettingValue(static_cast<Settings::Type>(i), scrollerIdx + 6);
+            this->scrollerSettings[i][scrollerIdx] = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), scrollerIdx + 6)
+                : settings.GetUserSettingValue(static_cast<Settings::UserType>(i - Settings::Params::pulsarPageCount), scrollerIdx + 6);
         }
     }
     MenuInteractable::OnInit();

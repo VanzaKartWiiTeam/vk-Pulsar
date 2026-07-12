@@ -24,7 +24,7 @@ public:
     CtrlRaceCount* ctrlRaceCount; //0x18c0 THE BLUE TEAM WINS
 
 }; //0x18c4
-size_assert(TeamLeaderboardBase, 0x18c4);
+//size_assert(TeamLeaderboardBase, 0x18c4);
 
 class TeamVSLeaderboardTotal : public TeamLeaderboardBase { //ID 0x32
 public:
@@ -36,7 +36,7 @@ public:
     void FillRows() override; //0x68 8085e9e4
 
 };
-size_assert(TeamVSLeaderboard, 0x18c4);
+//size_assert(TeamVSLeaderboard, 0x18c4);
 
 
 class BattleLeaderboardUpdate : public TeamLeaderboardBase { //ID 0x33

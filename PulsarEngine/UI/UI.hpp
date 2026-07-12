@@ -33,9 +33,12 @@ enum PulPageId {
     PULPAGE_KOWINNER,
     PULPAGE_SETTINGS,
     PULPAGE_ROOMKICK, 
+    PULPAGE_VARIANTSELECT,
+    PULPAGE_EXTENDEDTEAMSELECT,
+    PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL,
+    PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR,
 
-
-    PULPAGE_MAX = PULPAGE_SETTINGS - PULPAGE_INITIAL + 1
+    PULPAGE_MAX = PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR - PULPAGE_INITIAL + 1
 };
 
 class ExpSection : public Section { //u32 id -> either a standard pageId but can also be a PulPageId
@@ -45,7 +48,7 @@ public:
     static void CreatePages(ExpSection& self, SectionId id);
     void CreatePulPages();
     static void CreateAndInitPage(ExpSection& self, u32 id);
-    static void SetNextPage(u32 id, u32 animDirection);
+    static void SetNextPage(ExpSection& self, u32 id, u32 animDirection);
     static void DisposePulPages(SectionPad& pad, bool enablePointer);
     static void AddPageLayer(ExpSection& self, u32 id);
     static Page* AddPageLayerAnimatedReturnTopLayer(ExpSection& self, u32 id, u32 animDirection);
@@ -74,6 +77,8 @@ enum BMG {
     BMG_PLEASE_WAIT_A_MOMENT = 0x401,
     BMG_SAVED_GHOST = 0x45b,
     BMG_FINISH = 0x4b5,
+    BMG_SCORE_PTS = 0x521,
+    BMG_SCORE_POINTS = 0x523,
     BMG_DISPLAY_TIME = 0x578,
     BMG_TIME_TRIALS = 0xbb9,
 
@@ -93,6 +98,7 @@ enum BMG {
     BMG_GP_BLANK = 0xd36,
 
     BMG_CHOOSE_GHOST_DATA = 0xd4f,
+    BMG_DISCONNECTED_FROM_OTHER_PLAYERS = 0xfb2,
     BMG_PLAY_GP = 0x100e,
     BMG_PLAY_TEAM_GP = 0x100f,
     BMG_RATING = 0x106a, //vr/br value + "rating" under
@@ -229,6 +235,13 @@ enum BMG {
     BMG_SCROLLER_SETTINGS = 0x3700,
     BMG_USERSETTINGSOFFSET = 0x60000, //user settings therefore start at 0x53000 for radi osettings, 0x53700 for scrollers
 
+    // Custom texts (extended teams, explanations, etc..)
+    BMG_EXTENDEDTEAMS_EXPLANATION = 0x83337,
+    BMG_EXTENDEDTEAMS_NONHOST_TITLE = 0x83338,
+    BMG_EXTENDEDTEAMS_IRREGULAR_WARNING = 0x8333A,
+    BMG_EXTENDEDTEAMS_TEAM_NAME = 0x83340,
+    BMG_EXTENDEDTEAMS_WINNER = 0x83350,
+    BMG_EXTENDEDTEAMS_PLAY = 0x83352,
 };
 
 const char controlFolder[] = "control";

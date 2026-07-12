@@ -61,6 +61,8 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
         src->pulWinningTrack = pulWinning; //this is safe because src is a ptr to the buffer of holder which is always big enough
         const u16 pulVote = CupsConfig::ConvertTrack_RealIdToPulsarId(static_cast<CourseId>(src->playersData[0].courseVote));
         src->pulVote = pulVote;
+        src->voteVariantIdx[0] = 0;
+        src->voteVariantIdx[1] = 0;
         src->blockedTrackCount = 0;
         src->curBlockingArrayIdx = 0;
         src->lastGroupedTrackPlayed = false;
@@ -165,6 +167,7 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
         u8 aids[12];
         u8 newVotesAids[12]; //only used for track blocking
         PulsarId votes[12];
+        bool votedRandom[12];
         int playerCount = 0;
         int newVoters = 0;
         for (u8 aid = 0; aid < 12; ++aid) {
@@ -173,6 +176,7 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             ++playerCount;
 
             PulsarId aidVote = static_cast<PulsarId>(aid == sub.localAid ? self.toSendPacket.pulVote : self.receivedPackets[aid].pulVote);
+            votedRandom[aid] = (aidVote == 0xFF);
             if (aidVote == 0xFF) {
                 if (isCT) aidVote = cupsConfig->RandomizeTrack();
                 else {
@@ -218,7 +222,17 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
         PulsarId vote = static_cast<PulsarId>(votes[winner]);
         self.toSendPacket.winningVoterAid = winner;
         self.toSendPacket.pulWinningTrack = vote;
-        self.toSendPacket.variantIdx = cupsConfig->RandomizeVariant(vote);
+
+        u8 winnerVariant = 0;
+        if (votedRandom[winner]) {
+            winnerVariant = cupsConfig->RandomizeVariant(vote);
+        } else if (winner == sub.localAid) {
+            winnerVariant = self.toSendPacket.voteVariantIdx[0];
+        } else {
+            winnerVariant = self.receivedPackets[winner].voteVariantIdx[0];
+        }
+        self.toSendPacket.variantIdx = winnerVariant;
+
         if (isCT) {
             const u32 blockingCount = system->GetInfo().GetTrackBlocking();
             if (blockingCount != 0 && system->netMgr.lastTracks != nullptr) {
@@ -434,6 +448,8 @@ void InitPatch() {
     asm(mr select, r31;);
     select->toSendPacket.pulVote = 0x43;
     select->toSendPacket.pulWinningTrack = 0xff;
+    select->toSendPacket.voteVariantIdx[0] = 0;
+    select->toSendPacket.voteVariantIdx[1] = 0;
     const Settings::Mgr& settings = Settings::Mgr::Get();
     bool allowChangeCombo;
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
@@ -446,6 +462,8 @@ void InitPatch() {
         PulSELECT& cur = select->receivedPackets[aid];
         cur.pulVote = 0x43;
         cur.pulWinningTrack = 0xff;
+        cur.voteVariantIdx[0] = 0;
+        cur.voteVariantIdx[1] = 0;
         reinterpret_cast<RKNet::SELECTHandler*>(select)->ResetPacket(select->receivedPackets[aid]);
     }
 }
@@ -460,6 +478,26 @@ asmFunc SetPlayerDataPatch(register ExpSELECTHandler* select, u8 r4, u8 r5, u8 r
 }
 kmBranch(0x80660750, SetPlayerDataPatch);
 kmPatchExitPoint(SetPlayerDataPatch, 0x80660754);
+
+static void StoreVoteVariantAfterSetPlayerData() {
+    const CupsConfig* cupsConfig = CupsConfig::sInstance;
+    u8 variantIdx = cupsConfig ? cupsConfig->GetCurVariantIdx() : 0;
+
+    register u32 hudSlotId;
+    asm(mr hudSlotId, r27;);
+
+    ExpSELECTHandler& handler = ExpSELECTHandler::Get();
+    if (hudSlotId < 2) {
+        handler.toSendPacket.voteVariantIdx[hudSlotId] = variantIdx;
+    }
+
+    register u32 r28_val;
+    asm(mr r28_val, r28;);
+    r28_val += 0xc;
+    asm(mr r28, r28_val;);
+}
+kmCall(0x80643758, StoreVoteVariantAfterSetPlayerData);
+kmCall(0x806437ac, StoreVoteVariantAfterSetPlayerData);
 
 //ResetSendPacket
 //kmWrite32(0x80660908, 0xB3B80000 + offsetof(PulSELECT, pulLocalVotes));

@@ -5,6 +5,8 @@
 #include <Settings/Settings.hpp>
 #include <Network/Network.hpp>
 #include <Network/PacketExpansion.hpp>
+#include <UI/ExtendedTeamSelect/ExtendedTeamSelect.hpp>
+#include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
 
 namespace Pulsar {
 namespace Network {
@@ -40,6 +42,26 @@ static void WriteBlockedTracksToPacket(PulROOM* packet) {
     }
 }
 
+extern "C" void OSReport(const char* format, ...);
+
+static void HandleExtendedTeamUpdates(const PulROOM& packet) {
+    UI::ExtendedTeamSelect* ets = SectionMgr::sInstance->curSection->Get<UI::ExtendedTeamSelect>();
+    OSReport("[Pulsar LOG] HandleExtendedTeamUpdates: ets=%p\n", ets);
+    for (int id = 0; id < 12; ++id) {
+        const u8 byte = id / 2;
+        const u8 shift = (id % 2) * 4;
+        UI::ExtendedTeamID team = static_cast<UI::ExtendedTeamID>(packet.extendedTeams[byte] >> shift & 0x0F);
+        OSReport("[Pulsar LOG] HandleExtendedTeamUpdates: id=%d, team=%d\n", id, team);
+        if (team != 0x0F) {
+            if (ets != nullptr) {
+                ets->UpdatePlayerTeam(id, team);
+            } else {
+                UI::ExtendedTeamManager::sInstance->SetPlayerTeam(id, team);
+            }
+        }
+    }
+}
+
 static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* src, u32 len) {
     packetHolder->Copy(src, len); //default
 
@@ -47,8 +69,10 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
     Pulsar::System* system = Pulsar::System::sInstance;
     PulROOM* destPacket = packetHolder->packet;
+    OSReport("[Pulsar LOG] BeforeROOMSend: msgType=%d, localAid=%d, hostAid=%d\n", destPacket->messageType, sub.localAid, sub.hostAid);
     if (destPacket->messageType == 1 && sub.localAid == sub.hostAid) {
-        packetHolder->packetSize += sizeof(PulROOM) - sizeof(RKNet::ROOMPacket); //this has been changed by copy so it's safe to do this
+        packetHolder->packetSize = sizeof(PulROOM); //this has been changed by copy so it's safe to do this
+        OSReport("[Pulsar LOG] BeforeROOMSend: setting packetSize to sizeof(PulROOM) = %d\n", sizeof(PulROOM));
 
         // Save original message before remapping.
         // Messages 4 and 5 are OPT WW and OTT WW starts (added by ExpFroomMessages).
@@ -77,6 +101,8 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
         const u8 koFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
         //invert mii setting as the first button is enabled, not disabled, so a value of 1 indicates disabled
         const u8 ottOnline = settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ONLINE);
+        const bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+
         destPacket->hostSystemContext = (ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT //ott
             | (ottOnline == OTTSETTING_ONLINE_FEATHER) << PULSAR_FEATHER //ott feather
             | (settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS) ^ true) << PULSAR_UMTS //ott umts
@@ -89,7 +115,10 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             | isStartOTWW  << PULSAR_STARTOTTWW  // OTT WW start from friend room
             | isStartItemRainWW << PULSAR_STARTITEMRAIN
             | (!isStartMogi && (isStartItemRainWW || isStartItemRainVS || isStartItemRainTeamVS)) << PULSAR_ITEMMODERAIN
-            | isStartMogi << PULSAR_STARTMOGI;
+            | isStartMogi << PULSAR_STARTMOGI
+            | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS;
+
+        OSReport("[Pulsar LOG] BeforeROOMSend: hostSystemContext=0x%08X (extendedTeams=%d)\n", destPacket->hostSystemContext, isExtendedTeams);
 
         u8 raceCount;
         if (koSetting == KOSETTING_ENABLED) raceCount = 0xFE;
@@ -123,23 +152,64 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
         WriteBlockedTracksToPacket(destPacket);
         ConvertROOMPacketToData(*destPacket);
         system->SetContext(destPacket->hostSystemContext);
+        if (isExtendedTeams) {
+            UI::ExtendedTeamManager::sInstance->hasFriendRoomStarted = true;
+        }
+    }
+
+    const bool isExtendedTeams = Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+    const bool isUpdateTeamMessage = destPacket->messageType == UI::ExtendedTeamManager::MSG_TYPE_UPDATE_TEAMS;
+    const bool isStartVSRaceMessage = destPacket->messageType == 1 && (destPacket->message == 0 || destPacket->message == 2 || destPacket->message == 3);
+    OSReport("[Pulsar LOG] BeforeROOMSend: isUpdateTeamMessage=%d, isStartVSRaceMessage=%d, isExtendedTeams=%d\n", isUpdateTeamMessage, isStartVSRaceMessage, isExtendedTeams);
+    if ((isUpdateTeamMessage || (isStartVSRaceMessage && isExtendedTeams)) && sub.localAid == sub.hostAid) {
+        packetHolder->packetSize = sizeof(PulROOM);
+        OSReport("[Pulsar LOG] BeforeROOMSend: Setting packetSize to sizeof(PulROOM) = %d and writing teams\n", sizeof(PulROOM));
+        const UI::ExtendedTeamPlayer* playerInfo = UI::ExtendedTeamManager::sInstance->GetPlayerInfo();
+
+        memset(destPacket->extendedTeams, 0xff, sizeof(destPacket->extendedTeams));
+        for (int i = 0; i < 12; ++i) {
+            if (playerInfo[i].playerIdx >= 12)
+                continue;
+
+            const u8 byte = i / 2;
+            const u8 shift = (i % 2) * 4;
+
+            destPacket->extendedTeams[byte] &= ~(0x0F << shift);
+            destPacket->extendedTeams[byte] |= (playerInfo[i].team & 0x0F) << shift;
+        }
     }
 }
 kmCall(0x8065b15c, BeforeROOMSend);
 
 kmWrite32(0x8065add0, 0x60000000);
-static void AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder, const PulROOM& src, u32 len) {
+
+extern "C" void RealAfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder, const PulROOM& src, u32 len);
+
+asmFunc AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder, const PulROOM& src, u32 len) {
+    nofralloc
+    mr r5, r0
+    b RealAfterROOMReception
+}
+
+extern "C" void RealAfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder, const PulROOM& src, u32 len) {
     register RKNet::ROOMPacket* packet;
+    register u32 aid;
     asm(mr packet, r28;);
+    asm(mr aid, r29;);
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
     Pulsar::System* system = Pulsar::System::sInstance;
+    const bool isHost = sub.localAid == sub.hostAid;
+
+    OSReport("[Pulsar LOG] AfterROOMReception: msgType=%d, len=%d, isHost=%d\n", src.messageType, len, isHost);
+
     //START msg sent by the host, size check should always be guaranteed in theory
-    if (src.messageType == 1 && sub.localAid != sub.hostAid && packetHolder->packetSize == sizeof(PulROOM)) {
+    if (src.messageType == 1 && !isHost && len == sizeof(PulROOM)) {
         ConvertROOMPacketToData(src);
 
         // Apply host context locally on all non-host clients.
         const u32 hostContext = src.hostSystemContext;
+        OSReport("[Pulsar LOG] AfterROOMReception: Setting hostContext=0x%08X on client\n", hostContext);
         system->SetContext(hostContext);
 
         // Sync host's blocked tracks to the client
@@ -161,7 +231,47 @@ static void AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder,
             UI::SettingsPanel* panel = static_cast<UI::SettingsPanel*>(topPage);
             panel->OnBackPress(0);
         }
+
+        if (system->IsContext(PULSAR_EXTENDEDTEAMS)) {
+            OSReport("[Pulsar LOG] AfterROOMReception: PULSAR_EXTENDEDTEAMS is active! Snycing teams...\n");
+            HandleExtendedTeamUpdates(src);
+            UI::ExtendedTeamManager::sInstance->hasFriendRoomStarted = true;
+        }
     }
+
+    if (src.messageType == UI::ExtendedTeamManager::MSG_TYPE_UPDATE_TEAMS &&
+        !isHost &&
+        len == sizeof(PulROOM)) {
+        OSReport("[Pulsar LOG] AfterROOMReception: MSG_TYPE_UPDATE_TEAMS received on client! Syncing teams...\n");
+        HandleExtendedTeamUpdates(src);
+    }
+
+    if (isHost && src.messageType == UI::ExtendedTeamManager::MSG_TYPE_PING) {
+        UI::ExtendedTeamManager::sInstance->SetActiveStatusForAID(aid);
+        u8 team1 = src.message & 0x0F;
+        u8 team2 = (src.message >> 4) & 0x0F;
+        bool changed = false;
+        if (team1 < UI::TEAM_COUNT) {
+            UI::ExtendedTeamID oldTeam = UI::ExtendedTeamManager::sInstance->GetPlayerTeamByAID(aid, 0);
+            if (oldTeam != team1) {
+                UI::ExtendedTeamManager::sInstance->SetPlayerTeamByAID(aid, 0, static_cast<UI::ExtendedTeamID>(team1));
+                changed = true;
+            }
+        }
+        if (team2 < UI::TEAM_COUNT) {
+            UI::ExtendedTeamID oldTeam = UI::ExtendedTeamManager::sInstance->GetPlayerTeamByAID(aid, 1);
+            if (oldTeam != team2) {
+                UI::ExtendedTeamManager::sInstance->SetPlayerTeamByAID(aid, 1, static_cast<UI::ExtendedTeamID>(team2));
+                changed = true;
+            }
+        }
+        if (changed) {
+            UI::ExtendedTeamManager::sInstance->SendUpdateTeamsPacket();
+        }
+    } else if (!isHost && src.messageType == UI::ExtendedTeamManager::MSG_TYPE_ACK_START_RACE) {
+        UI::ExtendedTeamManager::sInstance->SetDoneStatusForAID(aid);
+    }
+
     memcpy(packet, &src, sizeof(RKNet::ROOMPacket)); //default
 }
 kmCall(0x8065add8, AfterROOMReception);

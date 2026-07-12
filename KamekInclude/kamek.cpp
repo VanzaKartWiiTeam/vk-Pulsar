@@ -16,7 +16,6 @@ void DoFuncsHook::Exec(DoFuncsHook* first) {
     }
 }
 
-nw4r::ut::List BootHook::list ={ nullptr, nullptr, 0, offsetof(BootHook, link) };
 
 //kmBranch(0x80001500, BootHook2::Exec);
 kmCall(0x80543bb4, BootHook::Exec); //800074d4

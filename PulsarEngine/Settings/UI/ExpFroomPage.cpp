@@ -2,9 +2,11 @@
 #include <MarioKartWii/3D/GlobeMgr.hpp>
 #include <PulsarSystem.hpp>
 #include <Settings/UI/ExpFroomPage.hpp>
+#include <Settings/Settings.hpp>
 #include <UI/TeamSelect/TeamSelect.hpp>
 #include <UI/RoomKick/RoomKickPage.hpp>
 #include <UI/UI.hpp>
+#include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -48,6 +50,8 @@ void ExpFroom::OnInit() {
 
 void ExpFroom::OnActivate() {
     FriendRoom::OnActivate();
+    System::sInstance->UpdateContext();
+    ExtendedTeamManager::sInstance->Reset();
     RoomKickPage* kickPage = ExpSection::GetSection()->GetPulPage<RoomKickPage>();
     if(kickPage) kickPage->ClearKickHistory();
 }
@@ -55,6 +59,7 @@ void ExpFroom::OnActivate() {
 void ExpFroom::OnResume() {
     if(this->areControlsHidden) GlobeMgr::sInstance->DisplayMii();
     this->areControlsHidden = false;
+    System::sInstance->UpdateContext();
     FriendRoom::OnResume();
 }
 
@@ -78,7 +83,11 @@ void ExpFroom::OnSettingsButtonClick(PushButton& button, u32 hudSlotId) {
 
 void ExpFroom::OnTeamsButtonClick(PushButton& button, u32 hudSlotId) {
     this->areControlsHidden = true;
-    this->AddPageLayer(static_cast<PageId>(PULPAGE_TEAMSELECT), 0);
+    if (Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED) {
+        this->AddPageLayer(static_cast<PageId>(PULPAGE_EXTENDEDTEAMSELECT), 0);
+    } else {
+        this->AddPageLayer(static_cast<PageId>(PULPAGE_TEAMSELECT), 0);
+    }
 }
 
 void ExpFroom::OnKickButtonClick(PushButton& button, u32 hudSlotId) {

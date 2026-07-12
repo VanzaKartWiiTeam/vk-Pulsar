@@ -23,6 +23,10 @@
 #include <Gamemodes/KO/KOWinnerPage.hpp>
 #include <Settings/UI/SettingsPanel.hpp>
 #include <UI/RoomKick/RoomKickPage.hpp>
+#include <UI/SelectStage/VariantSelect.hpp>
+#include <UI/ExtendedTeamSelect/ExtendedTeamSelect.hpp>
+#include <UI/ExtendedTeamSelect/Result/ExtendedTeamResultTotal.hpp>
+#include <UI/ExtendedTeamSelect/Result/ExtendedTeamResultIrregularTotal.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -36,7 +40,7 @@ kmWrite32(0x80635058, 0x60000000);
 
 void ExpSection::CreatePages(ExpSection& self, SectionId id) {
     const System* system = System::sInstance;
-    self.hasAutoVote = (id >= SECTION_P1_WIFI_FROOM_VS_VOTING && id <= SECTION_P2_WIFI_FROOM_COIN_VOTING) && system->IsContext(PULSAR_HAW); //can't think of a better way to do this awkward thing, where the usual pages are NOT built
+    self.hasAutoVote = (system != nullptr && id >= SECTION_P1_WIFI_FROOM_VS_VOTING && id <= SECTION_P2_WIFI_FROOM_COIN_VOTING && system->IsContext(PULSAR_HAW));
     if(!self.hasAutoVote) self.CreateSectionPages(id);
     memset(&self.pulPages, 0, sizeof(Page*) * PULPAGE_MAX);
     self.CreatePulPages();
@@ -46,6 +50,7 @@ kmCall(0x80622088, ExpSection::CreatePages);
 void ExpSection::CreatePulPages() {
 
     const System* system = System::sInstance;
+    if(system == nullptr) return;
     switch(this->sectionId) {
 
 
@@ -62,6 +67,10 @@ void ExpSection::CreatePulPages() {
             if(system->IsContext(PULSAR_MODE_OTT)) {
                 this->CreateAndInitPage(*this, PAGE_TT_SPLITS);
                 Pages::RaceHUD::sInstance->nextPageId = PAGE_TT_SPLITS;
+            }
+            if(system->IsContext(PULSAR_EXTENDEDTEAMS)) {
+                this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL);
+                this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR);
             }
             break;
             //case SECTION_P1_WIFI_FROOM_VS_VOTING:      //0x60
@@ -89,6 +98,10 @@ void ExpSection::CreatePulPages() {
             }
             if(system->IsContext(PULSAR_HAW)) {
                 if(SectionMgr::sInstance->sectionParams->onlineParams.currentRaceNumber != System::sInstance->netMgr.racesPerGP) this->CreateAndInitPage(*this, ChooseNextTrack::id);
+            }
+            if(system->IsContext(PULSAR_EXTENDEDTEAMS)) {
+                this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL);
+                this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR);
             }
             break;
         case SECTION_P1_WIFI_FRIEND_BALLOON:  //0x72
@@ -125,6 +138,10 @@ void ExpSection::CreatePulPages() {
     if(this->Get<ExpFroom>() != nullptr) {
         this->CreateAndInitPage(*this, PULPAGE_TEAMSELECT);
         this->CreateAndInitPage(*this, PULPAGE_ROOMKICK);
+        this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMSELECT);
+    }
+    if(this->Get<Pages::CourseSelect>() != nullptr) {
+        this->CreateAndInitPage(*this, PULPAGE_VARIANTSELECT);
     }
 }
 
@@ -210,6 +227,18 @@ void ExpSection::CreateAndInitPage(ExpSection& self, u32 id) {
         case RoomKickPage::id:
             page = new RoomKickPage;
             break;
+        case PULPAGE_VARIANTSELECT:
+            page = new VariantSelect;
+            break;
+        case ExtendedTeamSelect::id:
+            page = new ExtendedTeamSelect;
+            break;
+        case ExtendedTeamResultTotal::id:
+            page = new ExtendedTeamResultTotal;
+            break;
+        case ExtendedTeamResultIrregularTotal::id:
+            page = new ExtendedTeamResultIrregularTotal;
+            break;
         default:
             page = self.CreatePageById(initId);
     }
@@ -259,17 +288,32 @@ kmWrite32(0x80623128, 0x48000020); //skip the usual activate
 kmWrite32(0x80623140, 0x60000000); //nop layerCount increase, as AddPageLayer will do it for us
 kmWrite32(0x80623144, 0x60000000); //nop setanimdirection as r29 is faulty
 
-void ExpSection::SetNextPage(u32 id, u32 animDirection) {
-    register ExpSection* self;
-    asm(mr self, r28;);
-    AddPageLayerAnimatedReturnTopLayer(*self, id, animDirection);
+extern "C" Page* AddPageLayerAnimatedReturnTopLayer__Q36Pulsar2UI10ExpSectionFRQ36Pulsar2UI10ExpSectionUiUi(ExpSection& self, u32 id, u32 animDirection);
+
+asmFunc ExpSection::SetNextPage(ExpSection& self, u32 id, u32 animDirection) {
+    nofralloc
+    mr r3, r28
+    mr r4, r29
+    mr r5, r30
+    b AddPageLayerAnimatedReturnTopLayer__Q36Pulsar2UI10ExpSectionFRQ36Pulsar2UI10ExpSectionUiUi
 }
 kmCall(0x8062314c, ExpSection::SetNextPage);
 
 //Various Util funcs
 void ChangeImage(LayoutUIControl& control, const char* paneName, const char* tplName) {
     TPLPalettePtr tplRes = static_cast<TPLPalettePtr>(control.layout.resources->multiArcResourceAccessor.GetResource(lyt::res::RESOURCETYPE_TEXTURE, tplName));
-    if(tplRes != nullptr) control.layout.GetPaneByName(paneName)->GetMaterial()->GetTexMapAry()->ReplaceImage(tplRes);
+    if(tplRes != nullptr) {
+        lyt::Pane* pane = control.layout.GetPaneByName(paneName);
+        if(pane != nullptr) {
+            lyt::Material* mat = pane->GetMaterial();
+            if(mat != nullptr) {
+                lyt::TexMap* texMap = mat->GetTexMapAry();
+                if(texMap != nullptr) {
+                    texMap->ReplaceImage(tplRes);
+                }
+            }
+        }
+    }
 };
 
 //Implements the use of Pulsar's BMGHolder when needed
@@ -280,9 +324,16 @@ enum BMGType {
 };
 BMGType isCustom;
 
+inline bool IsValidPtr(const void* ptr) {
+    u32 addr = reinterpret_cast<u32>(ptr);
+    return (addr >= 0x80000000 && addr < 0x81800000) || (addr >= 0x90000000 && addr < 0x94000000);
+}
+
 static int GetMsgIdxByBmgId(const BMGHolder& bmg, s32 bmgId) {
+    if (!IsValidPtr(bmg.messageIds)) return -1;
     const BMGMessageIds& msgIds = *bmg.messageIds;
     int ret = -1;
+    if (msgIds.msgCount > 10000) return -1;
     for(int i = 0; i < msgIds.msgCount; ++i) {
         int curBmgId = msgIds.messageIds[i];
         if(curBmgId == bmgId) {
@@ -295,71 +346,80 @@ static int GetMsgIdxByBmgId(const BMGHolder& bmg, s32 bmgId) {
 }
 
 static int GetMsgIdxById(const BMGHolder& normalHolder, s32 bmgId) {
-
+    const BMGHolder* holder = &normalHolder;
+    if (!IsValidPtr(holder->messageIds) || !IsValidPtr(holder->info)) {
+        SectionMgr* sectionMgr = SectionMgr::sInstance;
+        if (IsValidPtr(sectionMgr) && IsValidPtr(sectionMgr->systemBMG) && 
+            IsValidPtr(sectionMgr->systemBMG->messageIds) && IsValidPtr(sectionMgr->systemBMG->info)) {
+            holder = sectionMgr->systemBMG;
+        }
+        else {
+            holder = nullptr;
+        }
+    }
+    if (System::sInstance == nullptr || !IsValidPtr(System::sInstance->GetBMG().messageIds) || !IsValidPtr(System::sInstance->GetBMG().info)) {
+        isCustom = BMG_NORMAL;
+        return (holder != nullptr) ? GetMsgIdxByBmgId(*holder, bmgId) : -1;
+    }
     int ret = GetMsgIdxByBmgId(System::sInstance->GetBMG(), bmgId);
     if(ret < 0) {
         isCustom = BMG_NORMAL;
-        ret = GetMsgIdxByBmgId(normalHolder, bmgId);
+        ret = (holder != nullptr) ? GetMsgIdxByBmgId(*holder, bmgId) : -1;
     }
     else isCustom = CUSTOM_BMG;
     return ret;
-    //}
 }
 kmBranch(0x805f8c88, GetMsgIdxById);
 
 wchar_t* GetMsgByMsgIdx(const BMGHolder& bmg, s32 msgIdx) {
-    const BMGInfo& info = *bmg.info;
+    const BMGHolder* holder = &bmg;
+    if (!IsValidPtr(holder->info) || !IsValidPtr(holder->data)) {
+        SectionMgr* sectionMgr = SectionMgr::sInstance;
+        if (IsValidPtr(sectionMgr) && IsValidPtr(sectionMgr->systemBMG) && 
+            IsValidPtr(sectionMgr->systemBMG->info) && IsValidPtr(sectionMgr->systemBMG->data)) {
+            holder = sectionMgr->systemBMG;
+        }
+        else return nullptr;
+    }
+    const BMGInfo& info = *holder->info;
     if(msgIdx < 0 || msgIdx >= info.msgCount) return nullptr;
     const u32 offset = info.entries[msgIdx].dat1Offset & 0xFFFFFFFE;
-    const BMGData& data = *bmg.data;
+    const BMGData& data = *holder->data;
     return reinterpret_cast<wchar_t*>((u8*)&data + offset);
 }
 
 wchar_t* GetMsg(const BMGHolder& normalHolder, s32 msgIdx) {
-    /*
     wchar_t* ret = nullptr;
-    if(isCustom) ret = GetMsgByMsgIdx(System::sInstance->GetBMG(), msgIdx);
+    if(isCustom == CUSTOM_BMG && System::sInstance != nullptr && IsValidPtr(System::sInstance->GetBMG().info)) ret = GetMsgByMsgIdx(System::sInstance->GetBMG(), msgIdx);
     if(ret == nullptr) ret = GetMsgByMsgIdx(normalHolder, msgIdx);
     return ret;
-    */
-
-    /*if(isCustom == CUP_TEXT) {
-        CupsConfig* config = CupsConfig::sInstance;
-        u32 idx = isCustom & 0xFFFF;
-        switch((isCustom & ~0xFFFF) >> 12) {
-            case(1):
-                return config->GetCupName(static_cast<PulsarCupId>(idx));
-            case(2):
-                return config->GetTrackName(static_cast<PulsarId>(idx));
-            case(3):
-                return config->GetTrackAuthor(static_cast<PulsarId>(idx));
-        }
-    }
-    else {*/
-    wchar_t* ret = nullptr;
-    if(isCustom == CUSTOM_BMG) ret = GetMsgByMsgIdx(System::sInstance->GetBMG(), msgIdx);
-    if(ret == nullptr) ret = GetMsgByMsgIdx(normalHolder, msgIdx);
-    return ret;
-    //}
 }
 kmBranch(0x805f8cf0, GetMsg);
 
 const u8* GetFontIndex(const BMGHolder& bmg, s32 msgIdx) {
-    const BMGInfo& info = *bmg.info;
+    const BMGHolder* holder = &bmg;
+    if (!IsValidPtr(holder->info)) {
+        SectionMgr* sectionMgr = SectionMgr::sInstance;
+        if (IsValidPtr(sectionMgr) && IsValidPtr(sectionMgr->systemBMG) && IsValidPtr(sectionMgr->systemBMG->info)) {
+            holder = sectionMgr->systemBMG;
+        }
+        else return nullptr;
+    }
+    const BMGInfo& info = *holder->info;
     if(msgIdx < 0 || msgIdx >= info.msgCount) return nullptr;
     return &info.entries[msgIdx].font;
-};
+}
 
 const u8* GetFont(const BMGHolder& normalHolder, s32 msgIdx) {
     const u8* ret = nullptr;
-    //if(isCustom == CUP_TEXT) msgIdx = 0;
-    if(isCustom == CUSTOM_BMG) ret = GetFontIndex(System::sInstance->GetBMG(), msgIdx);
+    if(isCustom == CUSTOM_BMG && System::sInstance != nullptr && IsValidPtr(System::sInstance->GetBMG().info)) ret = GetFontIndex(System::sInstance->GetBMG(), msgIdx);
     if(ret == nullptr) ret = GetFontIndex(normalHolder, msgIdx);
     return ret;
 }
 kmBranch(0x805f8d2c, GetFont);
 
 const wchar_t* GetCustomMsg(s32 bmgId) {
+    if (System::sInstance == nullptr || !IsValidPtr(System::sInstance->GetBMG().messageIds) || !IsValidPtr(System::sInstance->GetBMG().info)) return nullptr;
     const BMGHolder& bmg = System::sInstance->GetBMG();
     return GetMsgByMsgIdx(bmg, GetMsgIdxById(bmg, bmgId));
 }
@@ -391,7 +451,6 @@ void UnbindRLMC(lyt::Material* mat) {
                 if(animInfo->kind == lyt::res::ANIMATIONTYPE_RLMC) mat->UnbindAnimation(anim);
             }
         }
-        if(mat->animLinkList.GetSize() == 0) break;
     }
 }
 

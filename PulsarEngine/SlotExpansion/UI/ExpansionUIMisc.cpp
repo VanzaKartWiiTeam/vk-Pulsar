@@ -40,6 +40,26 @@ static bool IsGroupedTrack(PulsarId id) {
     }
 }
 
+const wchar_t* GetTrackName(s32 bmgId) {
+    s32 msgId;
+    if (System::sInstance != nullptr && System::sInstance->GetBMG().messageIds != nullptr) {
+        const BMGHolder& customBmg = System::sInstance->GetBMG();
+        msgId = customBmg.GetMsgId(bmgId);
+        if (msgId >= 0) {
+            return customBmg.GetMsgByMsgId(msgId);
+        }
+    }
+
+    SectionMgr* sectionMgr = SectionMgr::sInstance;
+    if (sectionMgr != nullptr && sectionMgr->systemBMG != nullptr) {
+        msgId = sectionMgr->systemBMG->GetMsgId(bmgId);
+        if (msgId >= 0) {
+            return sectionMgr->systemBMG->GetMsgByMsgId(msgId);
+        }
+    }
+    return nullptr;
+}
+
 bool IsTrackBlocked(PulsarId id) {
     System* system = System::sInstance;
     if (!system || !system->IsContext(PULSAR_CT)) return false;
@@ -76,7 +96,7 @@ static void RemoveAllEscapeSequences(wchar_t* dest, const wchar_t* src) {
     *dest = L'\0';
 }
 
-static void BuildRainbowTrackName(wchar_t* dest, const wchar_t* src, u32 maxLen) {
+void BuildRainbowTrackName(wchar_t* dest, const wchar_t* src, u32 maxLen) {
     wchar_t cleanSrc[0x100];
     RemoveAllEscapeSequences(cleanSrc, src);
 
@@ -123,6 +143,17 @@ static void LoadCorrectTrackListBox(ControlLoader& loader, const char* folder, c
 }
 kmCall(0x807e5f24, LoadCorrectTrackListBox);
 
+int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx) {
+    u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
+    if (CupsConfig::IsReg(pulsarId)) {
+        u32 bmgBase = realId > 32 ? BMG_BATTLE : BMG_REGS;
+        return bmgBase + realId;
+    }
+    u32 bmgId = BMG_TRACKS;
+    realId += static_cast<u32>(variantIdx) << 12;
+    return bmgId + realId;
+}
+
 //BMG
 int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
     u32 bmgId;
@@ -131,6 +162,7 @@ int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
     else {
         bmgId = BMG_TRACKS;
         const CupsConfig* cupsConfig = CupsConfig::sInstance;
+        if (cupsConfig == nullptr) return bmgId;
         u8 variantIdx;
         if (useCommonName) {
             if (cupsConfig->GetTrack(pulsarId).variantCount > 0) variantIdx = 8;
@@ -143,6 +175,7 @@ int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
 }
 
 int GetTrackBMGByRowIdx(u32 cupTrackIdx) {
+    if (CupsConfig::sInstance == nullptr) return 0;
     const Pages::CupSelect* cup = SectionMgr::sInstance->curSection->Get<Pages::CupSelect>();
     PulsarCupId curCupId;
     if (cup == nullptr) curCupId = PULSARCUPID_FIRSTREG;
@@ -164,7 +197,7 @@ static void SetCupPreviewTrackMessageImpl(LayoutUIControl* control, u32 bmgId, c
 
     PulsarId trackId = CupsConfig::sInstance->ConvertTrack_PulsarCupToTrack(curCupId, trackIdx);
     if (IsTrackBlocked(trackId) && trackIdx < 4) {
-        const wchar_t* originalText = GetCustomMsg(bmgId);
+        const wchar_t* originalText = GetTrackName(bmgId);
         if (originalText != nullptr) {
             BuildRainbowTrackName(s_blockedCupPreviewBuffer[trackIdx], originalText, 0x100);
             Text::Info blockedInfo;
@@ -191,6 +224,7 @@ static void SetCupPreviewTrackMessage_R29(LayoutUIControl* control, u32 bmgId, c
 kmCall(0x807e6198, SetCupPreviewTrackMessage_R29);
 
 int GetCurTrackBMG() {
+    if (CupsConfig::sInstance == nullptr) return 0;
     return GetTrackBMGId(CupsConfig::sInstance->GetWinning(), false);
 }
 
@@ -295,7 +329,7 @@ static bool IsVoteTrackBlocked(PulsarId courseVote) {
 
 void SetVoteControlMessage(VoteControl& vote, u32 bmgId, PulsarId courseVote, u32 playerId) {
     if (IsVoteTrackBlocked(courseVote) && playerId < 12) {
-        const wchar_t* originalText = GetCustomMsg(bmgId);
+        const wchar_t* originalText = GetTrackName(bmgId);
         if (originalText != nullptr) {
             BuildRainbowTrackName(s_blockedVoteNameBuffer[playerId], originalText, 0x100);
             Text::Info info;
@@ -427,7 +461,7 @@ static void ExtCourseSelectCourseInitSelf(CtrlMenuCourseSelectCourse* course) {
         
         PulsarId trackId = cupsConfig->ConvertTrack_PulsarCupToTrack(cupsConfig->lastSelectedCup, i);
         if (IsTrackBlocked(trackId)) {
-            const wchar_t* originalText = GetCustomMsg(bmgId);
+            const wchar_t* originalText = GetTrackName(bmgId);
             if (originalText != nullptr) {
                 BuildRainbowTrackName(s_blockedTrackNameBuffer[i], originalText, 0x100);
                 Text::Info info;

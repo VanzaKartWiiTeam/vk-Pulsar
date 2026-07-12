@@ -119,6 +119,13 @@ u32 CorrectModeButtonsBMG(const RKNet::ROOMPacket& packet) {
         }
     }
 
+    if (absRowIdx == 0) {
+        const bool isExtendedTeam = Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+        if (isExtendedTeam) {
+            return BMG_EXTENDEDTEAMS_PLAY;
+        }
+    }
+
     return Pages::FriendRoomManager::GetMessageBmg(packet, 0);
 }
 kmCall(0x805dcb74, CorrectModeButtonsBMG);
@@ -132,6 +139,7 @@ void CorrectRoomStartButton(Pages::Globe::MessageWindow& control, u32 bmgId, Tex
         const bool isStartItemRain = hostContext & (1 << PULSAR_STARTITEMRAIN);
         const bool isOTT        = hostContext & (1 << PULSAR_MODE_OTT);
         const bool isKO         = hostContext & (1 << PULSAR_MODE_KO);
+        const bool isExtendedTeam = hostContext & (1 << PULSAR_EXTENDEDTEAMS);
 
         if (isStartVKWW) {
             bmgId = BMG_VKWW_START_MESSAGE;
@@ -141,6 +149,9 @@ void CorrectRoomStartButton(Pages::Globe::MessageWindow& control, u32 bmgId, Tex
         }
         else if (isStartItemRain) {
             bmgId = BMG_ITEMRAIN_WW_START_MESSAGE;
+        }
+        else if (isExtendedTeam) {
+            bmgId = BMG_EXTENDEDTEAMS_PLAY;
         }
         else if (isOTT || isKO) {
             const bool isTeam = bmgId == BMG_PLAY_TEAM_GP;

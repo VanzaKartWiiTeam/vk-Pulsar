@@ -120,6 +120,7 @@ void Mgr::Init(const u16* totalTrophyCount, const char* path/*, const char *curM
 }
 
 TrackTrophy* Mgr::FindTrackTrophy(u32 crc32, TTMode mode) const {
+    if (this == nullptr || this->rawBin == nullptr) return nullptr;
     u32 trackCount = this->rawBin->GetSection<MiscParams>().trackCount;
     TrophiesHolder& trophiesHolder = this->rawBin->GetSection<TrophiesHolder>();
 
@@ -148,9 +149,11 @@ bool Mgr::HasTrophy(PulsarId id, TTMode mode) const {
 }
 
 u8 Mgr::GetSettingValue(Type type, u32 setting) const {
+    if (this == nullptr || this->rawBin == nullptr) return 0;
     return this->rawBin->GetSection<PagesHolder>().pages[type].settings[setting];
 }
 u8 Mgr::GetUserSettingValue(UserType type, u32 setting) const {
+    if (this == nullptr || this->rawBin == nullptr) return 0;
     const PagesHolder& pagesHolder = this->rawBin->GetSection<PagesHolder>();
     return pagesHolder.pages[type + pagesHolder.pulsarPageCount].settings[setting];
 }

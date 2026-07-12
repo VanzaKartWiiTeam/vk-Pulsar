@@ -100,7 +100,7 @@ kmCall(0x807493e4, CondPoihanaStopOnHit);
 
 static void CondTTSeed(RacedataScenario& scenario) {  // real non-ghost count is stored in system
     const GameMode old = scenario.settings.gamemode;
-    if (System::sInstance->IsContext(PULSAR_MODE_OTT)) scenario.settings.gamemode = MODE_TIME_TRIAL;
+    if (System::sInstance != nullptr && System::sInstance->IsContext(PULSAR_MODE_OTT)) scenario.settings.gamemode = MODE_TIME_TRIAL;
     scenario.InitRNG();
     scenario.settings.gamemode = old;
 }

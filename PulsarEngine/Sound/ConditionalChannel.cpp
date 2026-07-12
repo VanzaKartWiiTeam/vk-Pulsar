@@ -21,9 +21,12 @@ int CheckChannelCount(const Audio::StreamsMgr&, u32 channel, const nw4r::snd::de
     const u32 need = info.allocChannelCount;
     const u32 channelCount =  static_cast<const nw4r::snd::detail::StrmSound&>(sound).strmPlayer.strmInfo.channelCount;
     if(soundId == SOUND_ID_KC) {
-        const SectionId section = SectionMgr::sInstance->curSection->sectionId;
-        if(section >= SECTION_SINGLE_P_FROM_MENU && section <= SECTION_SINGLE_P_LIST_RACE_GHOST || section == SECTION_LOCAL_MULTIPLAYER) soundId = SOUND_ID_OFFLINE_MENUS;
-        else if(section >= SECTION_P1_WIFI && section <= SECTION_P2_WIFI_FROOM_COIN_VOTING) soundId = SOUND_ID_WIFI_MUSIC;
+        const Section* curSection = SectionMgr::sInstance->curSection;
+        if(curSection != nullptr) {
+            const SectionId section = curSection->sectionId;
+            if(section >= SECTION_SINGLE_P_FROM_MENU && section <= SECTION_SINGLE_P_LIST_RACE_GHOST || section == SECTION_LOCAL_MULTIPLAYER) soundId = SOUND_ID_OFFLINE_MENUS;
+            else if(section >= SECTION_P1_WIFI && section <= SECTION_P2_WIFI_FROOM_COIN_VOTING) soundId = SOUND_ID_WIFI_MUSIC;
+        }
     }
     return (channelCount < need) ? -1 : soundId;
 }
