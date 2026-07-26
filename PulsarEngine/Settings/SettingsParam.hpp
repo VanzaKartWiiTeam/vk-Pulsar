@@ -11,7 +11,7 @@ namespace Settings {
 class Params {
 public:
     static const int pulsarPageCount = 5; 
-    static const int userPageCount = 1; //in case you want to add user pages, change this and add the corresponding entries in the arrays below
+    static const int userPageCount = 2; //in case you want to add user pages, change this and add the corresponding entries in the arrays below
     static const int pageCount = pulsarPageCount + userPageCount;
 
     static const int maxRadioCount = 8; //per page, due to space
@@ -38,7 +38,8 @@ enum Type {
 
 //If you want to add settings to your packs, they go in this enum, and GetUserSettingValue should be used to obtain the value of a given setting
 enum UserType {
-    SETTINGSTYPE_EXTENDEDTEAMS
+    SETTINGSTYPE_EXTENDEDTEAMS,
+    SETTINGSTYPE_LANGUAGE
 };
 }//namespace Settings
 
@@ -274,6 +275,15 @@ enum ExtendedTeams {
 enum ExtendedTeamsLine {
     EXTENDEDTEAMS_LINE_TEAM,
     EXTENDEDTEAMS_LINE_REGION
+};
+
+enum Language {
+    LANGUAGE_ENGLISH,
+    LANGUAGE_ITALIAN,
+};
+
+enum {
+    SCROLLER_LANGUAGE = 0
 };
 
 }//namespace Pulsar

@@ -2,6 +2,7 @@
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
 #include <MarioKartWii/Scene/GameScene.hpp>
 #include <PulsarSystem.hpp>
+#include <Settings/Settings.hpp>
 
 namespace Pulsar {
 
@@ -12,10 +13,14 @@ void LoadAssetsFile(ArchiveFile* file, const char* path, EGG::Heap* decompressed
     EGG::Heap* archiveHeap, EGG::Archive::FileInfo* info) {
     const ArchiveMgr* archiveMgr = ArchiveMgr::sInstance;
     if(file == &archiveMgr->archivesHolders[ARCHIVE_HOLDER_UI]->archives[2]) {
-        const char* fileType = "UI";
-        if(GameScene::GetCurrent()->id == SCENE_ID_RACE) fileType = "Race";
+        const bool isItalian =
+            Settings::Mgr::Get().GetUserSettingValue(
+                static_cast<Settings::UserType>(Settings::SETTINGSTYPE_LANGUAGE),
+                SCROLLER_LANGUAGE) == LANGUAGE_ITALIAN;
+        const char* fileType = GameScene::GetCurrent()->id == SCENE_ID_RACE ? "Race" : "UI";
+        const char* languageSuffix = isItalian ? "_I" : "";
         char newPath[0x20];
-        snprintf(newPath, 0x20, "%sAssets.szs", fileType);
+        snprintf(newPath, sizeof(newPath), "%sAssets%s.szs", fileType, languageSuffix);
         path = newPath;
     }
     else if(file == &archiveMgr->archivesHolders[ARCHIVE_HOLDER_COMMON]->archives[2]) path = System::CommonAssets;
