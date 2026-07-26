@@ -288,14 +288,10 @@ kmWrite32(0x80623128, 0x48000020); //skip the usual activate
 kmWrite32(0x80623140, 0x60000000); //nop layerCount increase, as AddPageLayer will do it for us
 kmWrite32(0x80623144, 0x60000000); //nop setanimdirection as r29 is faulty
 
-extern "C" Page* AddPageLayerAnimatedReturnTopLayer__Q36Pulsar2UI10ExpSectionFRQ36Pulsar2UI10ExpSectionUiUi(ExpSection& self, u32 id, u32 animDirection);
-
-asmFunc ExpSection::SetNextPage(ExpSection& self, u32 id, u32 animDirection) {
-    nofralloc
-    mr r3, r28
-    mr r4, r29
-    mr r5, r30
-    b AddPageLayerAnimatedReturnTopLayer__Q36Pulsar2UI10ExpSectionFRQ36Pulsar2UI10ExpSectionUiUi
+void ExpSection::SetNextPage(u32 id, u32 animDirection) {
+    register ExpSection* self;
+    asm(mr self, r28;);
+    AddPageLayerAnimatedReturnTopLayer(*self, id, animDirection);
 }
 kmCall(0x8062314c, ExpSection::SetNextPage);
 
