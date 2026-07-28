@@ -48,7 +48,7 @@ public:
     static void CreatePages(ExpSection& self, SectionId id);
     void CreatePulPages();
     static void CreateAndInitPage(ExpSection& self, u32 id);
-    static void SetNextPage(ExpSection& self, u32 id, u32 animDirection);
+    static void SetNextPage(u32 id, u32 animDirection);
     static void DisposePulPages(SectionPad& pad, bool enablePointer);
     static void AddPageLayer(ExpSection& self, u32 id);
     static Page* AddPageLayerAnimatedReturnTopLayer(ExpSection& self, u32 id, u32 animDirection);

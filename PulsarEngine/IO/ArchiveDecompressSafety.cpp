@@ -81,7 +81,6 @@ static void SafeDecompress(ArchiveFile* file, const char* path, EGG::Heap* heap,
     archiveBaseLower[0] = '\0';
     // This gate is cheap on purpose: skip all index work for non-SZS loads before allocating extra scratch logic.
     const bool canApplyOverrides = ShouldApplyLooseOverrides(path, archiveBaseLower, sizeof(archiveBaseLower));
-    OS::Report("[Pulsar Log] SafeDecompress: path=%s, canApplyOverrides=%d, archiveBaseLower=%s\n", path != nullptr ? path : "nullptr", canApplyOverrides, archiveBaseLower);
     const u32 allocSize = nw4r::ut::RoundUp(expandSize, 0x20);
     EGG::Heap* archiveHeap = nullptr;
     EGG::Heap* sourceArchiveHeap = nullptr;
@@ -113,13 +112,9 @@ static void SafeDecompress(ArchiveFile* file, const char* path, EGG::Heap* heap,
 
     u8* archiveBase = decompressedBuffer;
     if (canApplyOverrides) {
-        OS::Report("[Pulsar Log] Calling ApplyLooseOverrides: base=%p, size=%u, heap=%p\n", archiveBase, finalSize, archiveHeap);
         // `ApplyLooseOverrides()` may swap `archiveBase` to a repacked buffer on another heap.
         ApplyLooseOverrides(archiveBaseLower, archiveBase, finalSize, sourceArchiveHeap, archiveHeap, &appliedOverrides,
                             &patchedNodes, &missingOverrides, compressedData);
-        OS::Report("[Pulsar Log] ApplyLooseOverrides done: base=%p, size=%u, heap=%p, applied=%u, patched=%u, missing=%u\n", archiveBase, finalSize, archiveHeap, appliedOverrides, patchedNodes, missingOverrides);
-    } else {
-        OS::Report("[Pulsar Log] Skip overrides: base=%p, size=%u, heap=%p\n", archiveBase, finalSize, archiveHeap);
     }
     if (archiveBase == decompressedBuffer) {
         archiveHeap = sourceArchiveHeap;

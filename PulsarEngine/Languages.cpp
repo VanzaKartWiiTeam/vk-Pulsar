@@ -10,7 +10,7 @@ static bool IsItalian() {
 
 // These bytes are the language letters embedded in the game's archive paths.
 // English keeps the PAL defaults; Italian selects the corresponding *_I archives.
-static void ApplyArchiveLanguage() {
+void ApplyArchiveLanguage() {
     const bool italian = IsItalian();
     FontRename = 0x46;                     // F
     RaceRename = italian ? 0x49 : 0x53;    // I / S

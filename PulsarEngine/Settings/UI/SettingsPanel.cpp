@@ -5,7 +5,8 @@
 #include <Settings/UI/ExpWFCMainPage.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 
-extern "C" void OSReport(const char* format, ...);
+
+namespace Languages { void ApplyArchiveLanguage(); }
 
 namespace Pulsar {
 namespace UI {
@@ -210,7 +211,8 @@ void SettingsPanel::OnActivate() {
         if(!isDisabled) {
             scroller.curSelectedOption = this->scrollerSettings[this->sheetIdx][i];
             u32 bmgCategory = this->bmgOffset + BMG_SCROLLER_SETTINGS + (this->catIdx << 12);
-            scroller.SetMessage(scroller.id + bmgCategory);
+            if (this->sheetIdx == Settings::SETTINGSTYPE_RACE && scroller.id == 1) scroller.SetMessage(BMG_ITEM_RAIN_TITLE_TEXT);
+            else scroller.SetMessage(scroller.id + bmgCategory);
             scroller.SelectInitial(scroller.curSelectedOption);
         }
 
@@ -258,24 +260,31 @@ void SettingsPanel::LoadPrevMenuAndSaveSettings(PushButton& button) {
     this->SaveSettings(true);
 }
 
+bool SettingsPanel::HasModifiedLanguageSetting() const {
+    const u32 languageSheet = Settings::Params::pulsarPageCount + Settings::SETTINGSTYPE_LANGUAGE;
+    return this->scrollerSettings[languageSheet][0] !=
+        Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_LANGUAGE, SCROLLER_LANGUAGE);
+}
+
+void SettingsPanel::LoadMainMenuAndSaveSettings(PushButton& button) {
+    this->SaveSettings(true);
+    Languages::ApplyArchiveLanguage();
+    this->ChangeSectionBySceneChange(SECTION_MAIN_MENU_FROM_MENU, 0, button.GetAnimationFrameSize());
+}
 //On Save Click/Back Press, is called and updates PulsarSettings
 void SettingsPanel::SaveSettings(bool writeFile) {
     const ExpSection* section = ExpSection::GetSection();
     Settings::Mgr* settings = Settings::Mgr::sInstance;
-
-    OSReport("[SettingsPanel] SaveSettings starting...\n");
     for(int count = 0; count < Settings::Params::pageCount; ++count) {
 
         const bool isPulsarPage = count < Settings::Params::pulsarPageCount;
         for(int i = 0; i < Settings::Params::radioCount[count]; ++i) {
             const u8 value = this->radioSettings[count][i];
-            OSReport("[SettingsPanel]   Page %d, Radio %d = %d\n", count, i, value);
             if(isPulsarPage) settings->SetSettingValue(static_cast<Settings::Type>(count), i, value);
             else settings->SetUserSettingValue(static_cast<Settings::UserType>(count - Settings::Params::pulsarPageCount), i, value);
         }
         for(int i = 0; i < Settings::Params::scrollerCount[count]; ++i) {
             const u8 value = this->scrollerSettings[count][i];
-            OSReport("[SettingsPanel]   Page %d, Scroller %d = %d (offset %d)\n", count, i, value, i + Settings::Params::scrollerSettingOffset);
             if(isPulsarPage) settings->SetSettingValue(static_cast<Settings::Type>(count), i + Settings::Params::scrollerSettingOffset, value);
             else settings->SetUserSettingValue(static_cast<Settings::UserType>(count - Settings::Params::pulsarPageCount), i + Settings::Params::scrollerSettingOffset, value);
         }
@@ -286,10 +295,18 @@ void SettingsPanel::SaveSettings(bool writeFile) {
 void SettingsPanel::OnBackPress(u32 hudSlotId) {
     PushButton& okButton = *this->externControls[0];
     okButton.SelectFocus();
+    if (this->HasModifiedLanguageSetting()) {
+        this->LoadMainMenuAndSaveSettings(okButton);
+        return;
+    }
     this->LoadPrevMenuAndSaveSettings(okButton);
 }
 
 void SettingsPanel::OnSaveButtonClick(PushButton& button, u32 hudSlotId) {
+    if (this->HasModifiedLanguageSetting()) {
+        this->LoadMainMenuAndSaveSettings(button);
+        return;
+    }
     this->LoadPrevMenuAndSaveSettings(button);
 }
 
@@ -338,15 +355,18 @@ void SettingsPanel::OnTextChange(TextUpDownValueControl::TextControl& text, u32 
 
     const u32 bmgId = this->bmgOffset + BMG_SCROLLER_SETTINGS + (this->catIdx << 12) + optionId;
     u32 id = this->GetTextId(text);
-    OSReport("[SettingsPanel] OnTextChange: text=%p, parentGroup=%p, parentControl=%p, id=%d, optionId=%d\n",
-             &text, text.parentGroup, text.parentGroup ? text.parentGroup->parentControl : nullptr, id, optionId);
-    for(u32 i = 0; i < Settings::Params::maxScrollerCount; ++i) {
-        OSReport("[SettingsPanel]   scroller %d: textUpDown=%p, UIControl=%p\n",
-                 i, &this->textUpDown[i], static_cast<const UIControl*>(&this->textUpDown[i]));
-    }
     this->scrollerSettings[this->sheetIdx][id] = optionId;
 
-    text.SetMessage(bmgId + (id + 1 << 4));
+    if (this->sheetIdx == Settings::SETTINGSTYPE_RACE && id == 1) {
+        static wchar_t normalMode[] = L"Normal";
+        static wchar_t itemRainMode[] = L"Item Rain";
+        wchar_t* modeNames[2] = { normalMode, itemRainMode };
+        Text::Info modeInfo;
+        modeInfo.strings[0] = modeNames[optionId == RACE_GAMEMODE_ITEMRAIN ? 1 : 0];
+        text.SetTextBoxMessage("text", UI::BMG_TEXT, &modeInfo);
+    } else {
+        text.SetMessage(bmgId + (id + 1 << 4));
+    }
     if(!this->externControls[0]->IsSelected()) {
         this->bottomText->SetMessage(bmgId + (id + 1 << 8));
     }
@@ -354,7 +374,8 @@ void SettingsPanel::OnTextChange(TextUpDownValueControl::TextControl& text, u32 
 
 void SettingsPanel::OnUpDownSelect(UpDownControl& upDownControl, u32 hudSlotId) {
     const u32 bmgId = this->bmgOffset + BMG_SCROLLER_SETTINGS + (this->catIdx << 12) + (upDownControl.id + 1 << 8) + upDownControl.curSelectedOption;
-    this->bottomText->SetMessage(bmgId);
+    if (this->sheetIdx == Settings::SETTINGSTYPE_RACE && upDownControl.id == 1) this->bottomText->SetMessage(upDownControl.curSelectedOption == RACE_GAMEMODE_ITEMRAIN ? BMG_ITEM_RAIN_PLAYING : BMG_SETTINGS_BOTTOM);
+    else this->bottomText->SetMessage(bmgId);
 }
 
 int SettingsPanel::GetNextSheetIdx(s32 direction) {

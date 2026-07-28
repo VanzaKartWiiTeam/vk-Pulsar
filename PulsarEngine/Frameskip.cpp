@@ -368,6 +368,7 @@ static void ResetFrameskipState() {
 static SectionLoadHook ResetFrameskipHook(ResetFrameskipState);
 
 static void PatchedGameScreenEffectsMgrUpdate(GameScreenEffectsMgr* mgr) {
+    if (mgr == nullptr) return;
     if (*(u32*)0x80001638 >= 15) {
         return;
     }

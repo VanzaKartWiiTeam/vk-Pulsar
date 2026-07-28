@@ -19,11 +19,12 @@ BuildCode.bat
 \KamekLinker\.vs
 KamekLinker/.vs/
 KamekLinker\.vs/
-/KamekLinker/obj
+KamekLinker/obj/*
 \KamekLinker\obh
 KamekLinker/obh/
 KamekLinker\obj/
 compile_and_link.py
+KamekLinker/*
 
 # Compiled Object files
 *.slo
@@ -77,3 +78,11 @@ PulsarPackCreator/Executable/PulsarBMGModified.txt
 
 # Ignore the entire PulsarPackCreator directory
 /PulsarPackCreator/
+
+# Ignore specific Kamek and build files
+KamekLinker/Kamek.csproj
+KamekLinker/Hooks/BranchHook.cs
+KamekLinker/obj/Kamek.csproj.nuget.g.props
+KamekLinker/obj/project.assets.json
+KamekLinker/obj/Release/net8.0/Kamek.csproj.FileListAbsolute.txt
+

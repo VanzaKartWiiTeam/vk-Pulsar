@@ -25,7 +25,7 @@ SET "RIIVO="
 :: Compiler flags and folder
 SET CFLAGS=-I- -i %ENGINE% -i %GAMESOURCE% -i %PULSAR% ^
   -opt all -inline auto -enum int -fp hard -sdata 0 -sdata2 0 -maxerrors 1 -func_align 4 %cwDWARF%
-SET DEFINE=
+SET DEFINE= -DBETA
 
 if "!CC!" == "" (
     echo You need to specify the path to CodeWarrior by setting the CC variable

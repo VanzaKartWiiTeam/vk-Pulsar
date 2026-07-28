@@ -8,7 +8,8 @@
 #include <Network/PulSELECT.hpp>
 #include <Settings/Settings.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
-#include <Network/GPReport.hpp>
+#include <Network/Rating/PlayerRating.hpp>
+#include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 
 
 namespace Pulsar {
@@ -21,7 +22,22 @@ static bool IsRegionalRoom(RKNet::RoomType roomType) {
 static bool IsGroupedTrack(PulsarId id);
 
 void BeforeSELECTSend(RKNet::PacketHolder<PulSELECT>* packetHolder, PulSELECT* src, u32 len) { //len is sizeof(RKNet::SELECTPacket) by default
+    PointRating::TryDownloadMultiplier();
     const System* system = System::sInstance;
+
+    const RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
+    src->prestigeRank[0] = 0;
+    src->prestigeRank[1] = 0;
+    src->decimalVR[0] = 0;
+    src->decimalVR[1] = 0;
+    if (rksys) {
+        u32 rank = PointRating::GetUserRank(rksys->curLicenseId);
+        if (rank > 9) rank = 9;
+        src->prestigeRank[0] = static_cast<u8>(rank);
+        const float vr = PointRating::GetUserVR(rksys->curLicenseId);
+        const float fraction = vr - (float)((u16)vr);
+        src->decimalVR[0] = (u8)(fraction * 100.0f + 0.5f);
+    }
 
     const Network::Mgr& netMgr = system->netMgr;
     const u32 blockingCount = system->GetInfo().GetTrackBlocking();
@@ -63,6 +79,10 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
         src->pulVote = pulVote;
         src->voteVariantIdx[0] = 0;
         src->voteVariantIdx[1] = 0;
+        src->prestigeRank[0] = 0;
+        src->prestigeRank[1] = 0;
+        src->decimalVR[0] = 0;
+        src->decimalVR[1] = 0;
         src->blockedTrackCount = 0;
         src->curBlockingArrayIdx = 0;
         src->lastGroupedTrackPlayed = false;
@@ -113,6 +133,12 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
                 netMgr.lastGroupedTrackPlayed = src->lastGroupedTrackPlayed;
             }
         }
+    }
+
+    if (holder != nullptr && holder->packetSize == sizeof(PulSELECT)) {
+        PointRating::CacheRemotePrestigeRanks(aid, src->prestigeRank);
+        PointRating::remoteDecimalVR[aid][0] = src->decimalVR[0];
+        PointRating::remoteDecimalVR[aid][1] = src->decimalVR[1];
     }
 
     memcpy(&dest, src, sizeof(PulSELECT));
@@ -242,7 +268,6 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             }
         }
     }
-    Network::ReportU32("wl:mkw_select_course", self.toSendPacket.pulWinningTrack);  // ← aggiungi un report per il vincitore della votazione del corso
 }
 kmCall(0x80661490, ExpSELECTHandler::DecideTrack);
 
@@ -318,7 +343,6 @@ static void DecideCC(ExpSELECTHandler& handler) {
     System* system = System::sInstance;
     if (system->IsContext(PULSAR_STARTMOGI)) {
         handler.toSendPacket.engineClass = 2;
-        Network::ReportU32("wl:mkw_select_cc", handler.toSendPacket.engineClass);
         return;
     }
     if (!system->IsContext(PULSAR_CT)) reinterpret_cast<RKNet::SELECTHandler&>(handler).DecideEngineClass();
@@ -341,8 +365,6 @@ static void DecideCC(ExpSELECTHandler& handler) {
         else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
         handler.toSendPacket.engineClass = ccClass;
     }
-    Network::ReportU32("wl:mkw_select_cc", handler.toSendPacket.engineClass);  // ← aggiungi un report per la classe di CC decisa
-
 }
 kmCall(0x80661404, DecideCC);
 
@@ -473,8 +495,8 @@ kmPatchExitPoint(InitPatch, 0x806601bc);
 asmFunc SetPlayerDataPatch(register ExpSELECTHandler* select, u8 r4, u8 r5, u8 r6, register u8 hudSlotId) { //r3 = handler, r0 = hudslot * sizeof(SELECTPlayerData)
     ASM(
         rlwinm r0, r7, 3, 0, 28; //default
-    sth r6, ExpSELECTHandler.toSendPacket + PulSELECT.pulVote(r3);
-        )
+        sth r6, ExpSELECTHandler.toSendPacket + PulSELECT.pulVote(r3);
+    )
 }
 kmBranch(0x80660750, SetPlayerDataPatch);
 kmPatchExitPoint(SetPlayerDataPatch, 0x80660754);

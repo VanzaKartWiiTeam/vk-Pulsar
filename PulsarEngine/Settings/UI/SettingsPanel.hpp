@@ -60,6 +60,8 @@ private:
 
     void OnTextChange(TextUpDownValueControl::TextControl& text, u32 optionId);
     void LoadPrevMenuAndSaveSettings(PushButton& button);
+    bool HasModifiedLanguageSetting() const;
+    void LoadMainMenuAndSaveSettings(PushButton& button);
     int GetNextSheetIdx(s32 direction); //1 for right, -1 for left
     int GetNextBMGOffset(s32 direction);
     u32 GetTextId(const TextUpDownValueControl::TextControl& text) const {

@@ -61,7 +61,13 @@ enum RaceSettings {
     SETTINGRACE_RADIO_FPS,
     SETTINGRACE_RADIO_SOM,
 
-    SETTINGRACE_SCROLL_SOM = 0 + 6
+    SETTINGRACE_SCROLL_SOM = 0 + 6,
+    SETTINGRACE_SCROLL_GAMEMODE = 1 + 6
+};
+
+enum RaceGameModeSetting {
+    RACE_GAMEMODE_NORMAL = 0,
+    RACE_GAMEMODE_ITEMRAIN = 1
 };
 
 enum HostSettings {
@@ -283,7 +289,7 @@ enum Language {
 };
 
 enum {
-    SCROLLER_LANGUAGE = 0
+    SCROLLER_LANGUAGE = 0 + 6
 };
 
 }//namespace Pulsar

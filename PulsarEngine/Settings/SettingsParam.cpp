@@ -12,7 +12,7 @@ u8 Params::radioCount[Params::pageCount] ={
     2,              //Extended Teams
     0
 };
-u8 Params::scrollerCount[Params::pageCount] ={ 2, 1, 1, 0, 2, 0, 1}; //menu, race, host, OTT, KO, Extended Teams
+u8 Params::scrollerCount[Params::pageCount] ={ 2, 2, 1, 0, 2, 0, 1}; //menu, race, host, OTT, KO, Extended Teams
 
 u8 Params::buttonsPerPagePerRow[Params::pageCount][Params::maxRadioCount] = //first row is PulsarSettingsType, 2nd is rowIdx of radio
 {
@@ -28,7 +28,7 @@ u8 Params::buttonsPerPagePerRow[Params::pageCount][Params::maxRadioCount] = //fi
 u8 Params::optionsPerPagePerScroller[Params::pageCount][Params::maxScrollerCount] =
 {
     { 5, 13, 0, 0, 0, 0, 0, 0}, //Menu: Boot (5), HUD Color (13)
-    { 4, 0, 0, 0, 0, 0, 0, 0}, //Race: SOM (4)
+    { 4, 2, 0, 0, 0, 0, 0, 0}, //Race: SOM (4), Mode (Normal/Item Rain)
     { 7, 0, 0, 0, 0, 0, 0, 0}, //Host: GP (7)
     { 0, 0, 0, 0, 0, 0, 0, 0}, //OTT
     { 4, 4, 0, 0, 0, 0, 0, 0}, //KO
