@@ -14,7 +14,6 @@
 #include <SlotExpansion/CupsConfig.hpp>
 #include <core/egg/DVD/DvdRipper.hpp>
 #include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
-extern "C" void OSReport(const char* format, ...);
 namespace Pulsar {
 
 namespace Network {
@@ -141,6 +140,8 @@ void System::InitSettings(const u16* totalTrophyCount) const {
     Settings::Mgr::sInstance = settings;
 }
 
+extern "C" void OSReport(const char* format, ...);
+
 void System::UpdateContext() {
     OSReport("[Pulsar LOG] UpdateContext: start\n");
     const RacedataSettings& racedataSettings = Racedata::sInstance->menusScenario.settings;
@@ -166,7 +167,6 @@ void System::UpdateContext() {
     bool isItemRainActive = false;
     bool isItemStormActive = false;
     bool isAllItemsCanLand = false;
-    const bool selectedItemRain = settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_GAMEMODE) == RACE_GAMEMODE_ITEMRAIN;
     bool isKOFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
     bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
 
@@ -206,8 +206,7 @@ void System::UpdateContext() {
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
                         | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
-                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS
-                        | selectedItemRain << PULSAR_ITEMMODERAIN;
+                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS;
                     netMgr.hostContext = newContext;
                     OSReport("[Pulsar LOG] UpdateContext: Host compiled newContext=0x%08X (localTeams=%d)\n", newContext, isLocalExtendedTeams);
                 } else {
@@ -247,9 +246,7 @@ void System::UpdateContext() {
     }
     else {
         const u8 ottOffline = settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_OFFLINE);
-        const bool isOfflineVS = mode == MODE_GRAND_PRIX || mode == MODE_VS_RACE;
-        isOTT = isOfflineVS ? (ottOffline != OTTSETTING_OFFLINE_DISABLED) : false; //offlineOTT
-        isItemRainActive = isOfflineVS && selectedItemRain;
+        isOTT = (mode == MODE_GRAND_PRIX || mode == MODE_VS_RACE) ? (ottOffline != OTTSETTING_OFFLINE_DISABLED) : false; //offlineOTT
         if(isOTT) {
             isFeather &= (ottOffline == OTTSETTING_OFFLINE_FEATHER);
             isUMTs &= ~settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS);

@@ -10,8 +10,6 @@
 #include <SlotExpansion/UI/ExpansionUIMisc.hpp>
 #include <Network/PacketExpansion.hpp>
 
-extern "C" void OSReport(const char* format, ...);
-
 
 namespace Pulsar {
 namespace UI {
@@ -136,9 +134,7 @@ kmWrite24(0x808a85ef, 'PUL'); //used by 807e5754
 
 static void LoadCtrlMenuCourseSelectCupBRCTR(ControlLoader& loader, const char* folderName, const char* ctrName,
     const char* variant, const char** animNames) {
-    OSReport("[VK UIASSETS] cup load begin folder=%s originalFolder=%s ctr=%s variant=%s anims=%p\n", UI::buttonFolder, folderName ? folderName : "(null)", ctrName ? ctrName : "(null)", variant ? variant : "(null)", animNames);
-    loader.Load(UI::buttonFolder, "PULrseSelectCup", variant, animNames); // Loaded from UIAssets.szs/button.
-    OSReport("[VK UIASSETS] cup load returned\n");
+    loader.Load(UI::buttonFolder, "PULrseSelectCup", variant, animNames); //Move to button to avoid duplication of cup icon tpls
 }
 kmCall(0x807e4538, LoadCtrlMenuCourseSelectCupBRCTR);
 
@@ -147,73 +143,35 @@ static void LoadCorrectTrackListBox(ControlLoader& loader, const char* folder, c
 }
 kmCall(0x807e5f24, LoadCorrectTrackListBox);
 
-static u32 GetLanguageTrackOffset() {
-    const Language language = static_cast<Language>(Settings::Mgr::Get().GetUserSettingValue(
-        static_cast<Settings::UserType>(Settings::SETTINGSTYPE_LANGUAGE), SCROLLER_LANGUAGE));
-    switch (language) {
-        // Other RR language offsets intentionally disabled for VanzaKart:
-        // Japanese 0x1000, French 0x2000, German 0x3000, Dutch 0x4000,
-        // Spanish US 0x5000, Spanish EU 0x6000, Finnish 0x7000,
-        // Korean 0x9000, Russian 0xA000, Turkish 0xB000, Czech 0xC000.
-        case LANGUAGE_ITALIAN:
-            return 0x8000;
-        case LANGUAGE_ENGLISH:
-        default:
-            return 0;
-    }
-}
-
-static u32 GetLanguageTrackBase() {
-    return BMG_TRACKS + GetLanguageTrackOffset();
-}
-
 int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx) {
-    const u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
+    u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
     if (CupsConfig::IsReg(pulsarId)) {
-        const u32 bmgBase = realId > 32 ? BMG_BATTLE : BMG_REGS;
+        u32 bmgBase = realId > 32 ? BMG_BATTLE : BMG_REGS;
         return bmgBase + realId;
     }
-
-    const u32 languageBase = GetLanguageTrackBase();
-    if (variantIdx == 8) variantIdx = 0;
-    if (variantIdx == 0 && CupsConfig::sInstance->GetTrack(pulsarId).variantCount == 0)
-        return languageBase + realId;
-
-    const u32 VARIANT_TRACKS_BASE = 0x400000;
-    return VARIANT_TRACKS_BASE + (realId << 4) + static_cast<u32>(variantIdx) + languageBase;
+    u32 bmgId = BMG_TRACKS;
+    realId += static_cast<u32>(variantIdx) << 12;
+    return bmgId + realId;
 }
 
-// BMG
+//BMG
 int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
-    u8 variantIdx = 0;
-    if (!CupsConfig::IsReg(pulsarId)) {
+    u32 bmgId;
+    u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
+    if (CupsConfig::IsReg(pulsarId)) bmgId = realId > 32 ? BMG_BATTLE : BMG_REGS;
+    else {
+        bmgId = BMG_TRACKS;
         const CupsConfig* cupsConfig = CupsConfig::sInstance;
-        if (cupsConfig == nullptr) return GetLanguageTrackBase();
-        if (cupsConfig->GetTrack(pulsarId).variantCount > 0) {
-            if (useCommonName) {
-                const u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
-                return GetLanguageTrackBase() + realId;
-            }
-            variantIdx = static_cast<u8>(cupsConfig->GetCurVariantIdx());
+        if (cupsConfig == nullptr) return bmgId;
+        u8 variantIdx;
+        if (useCommonName) {
+            if (cupsConfig->GetTrack(pulsarId).variantCount > 0) variantIdx = 8;
+            else variantIdx = 0;
         }
+        else variantIdx = cupsConfig->GetCurVariantIdx();
+        realId += variantIdx << 12;
     }
-    return GetTrackVariantBMGId(pulsarId, variantIdx);
-}
-
-u32 GetTrackAuthorBMGId(PulsarId trackId, u32 trackBmgId) {
-    if (CupsConfig::IsReg(trackId) || trackBmgId < BMG_TRACKS) return BMG_NINTENDO;
-    const u32 VARIANT_TRACKS_BASE = 0x400000;
-    const u32 VARIANT_AUTHORS_BASE = 0x500000;
-    const u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(trackId);
-    const CupsConfig* cupsConfig = CupsConfig::sInstance;
-    if (cupsConfig != nullptr && cupsConfig->GetTrack(trackId).variantCount > 0 &&
-        cupsConfig->GetCurVariantIdx() > 0 && trackBmgId >= VARIANT_TRACKS_BASE && trackBmgId < VARIANT_AUTHORS_BASE) {
-        u32 offset = trackBmgId - VARIANT_TRACKS_BASE;
-        const u32 languageOffset = GetLanguageTrackOffset();
-        if (offset >= languageOffset) offset -= languageOffset;
-        return VARIANT_AUTHORS_BASE + offset;
-    }
-    return BMG_AUTHORS + realId;
+    return bmgId + realId;
 }
 
 int GetTrackBMGByRowIdx(u32 cupTrackIdx) {
@@ -274,7 +232,9 @@ static void SetVSIntroBmgId(LayoutUIControl* trackName) {
     u32 bmgId = GetCurTrackBMG();
     Text::Info info;
     info.bmgToPass[0] = bmgId;
-    const u32 authorId = GetTrackAuthorBMGId(CupsConfig::sInstance->GetWinning(), bmgId);
+    u32 authorId;
+    if (bmgId < BMG_TRACKS) authorId = BMG_NINTENDO;
+    else authorId = bmgId + BMG_AUTHORS - BMG_TRACKS;
     info.bmgToPass[1] = authorId;
     trackName->SetMessage(BMG_INFO_DISPLAY, &info);
 }

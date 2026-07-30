@@ -6,7 +6,7 @@
 
 #ifndef WWFC_DOMAIN
 
-#if defined(PROD) || defined(BETA)
+#ifdef PROD
 #define WWFC_DOMAIN "sitodaking.it"  // Production server
 #elif defined(TEST)
 #define WWFC_DOMAIN "zpltest.xyz"  // Testing server
@@ -173,7 +173,7 @@ typedef struct {
 #define WL_ERROR_PAYLOAD_GAME_MISMATCH -20930
 
 // clang-format off
-#  if defined(PROD) || defined(BETA)
+#  ifdef PROD
 
 // Production payload key
 static const unsigned char PayloadPublicKey[] = {

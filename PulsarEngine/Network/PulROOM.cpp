@@ -102,7 +102,6 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
         //invert mii setting as the first button is enabled, not disabled, so a value of 1 indicates disabled
         const u8 ottOnline = settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ONLINE);
         const bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
-        const bool selectedItemRain = settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_GAMEMODE) == RACE_GAMEMODE_ITEMRAIN;
 
         destPacket->hostSystemContext = (ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT //ott
             | (ottOnline == OTTSETTING_ONLINE_FEATHER) << PULSAR_FEATHER //ott feather
@@ -115,7 +114,7 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             | isStartVKWW << PULSAR_STARTVKWW   // OPT WW start from friend room
             | isStartOTWW  << PULSAR_STARTOTTWW  // OTT WW start from friend room
             | isStartItemRainWW << PULSAR_STARTITEMRAIN
-            | (!isStartMogi && (selectedItemRain || isStartItemRainWW || isStartItemRainVS || isStartItemRainTeamVS)) << PULSAR_ITEMMODERAIN
+            | (!isStartMogi && (isStartItemRainWW || isStartItemRainVS || isStartItemRainTeamVS)) << PULSAR_ITEMMODERAIN
             | isStartMogi << PULSAR_STARTMOGI
             | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS;
 

@@ -91,8 +91,6 @@ struct PulSELECT : public RKNet::SELECTPacket {
     bool alwaysFinal;
 
     u8 voteVariantIdx[2];
-    u8 prestigeRank[2]; // Rank for each local player
-    u8 decimalVR[2]; // Fractional rating digits for extended VR
 
     //Track blocking
     u8 blockedTrackCount;  // Number of valid entries in blockedTracks

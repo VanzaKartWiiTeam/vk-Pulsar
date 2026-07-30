@@ -3431,17 +3431,22 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
     RefreshOverrideCacheState();
     if (!AreLooseArchiveOverridesEnabled()) return false;
 
+    OS::Report("[Pulsar Log] ApplyLooseOverrides start: tag=%s, size=%u, sourceHeap=%p, archiveHeap=%p\n", archiveBaseLower, archiveSize, sourceHeap, archiveHeap);
+
     // Resolve the tag bucket, match entries to U8 nodes, then patch in place or repack.
     // Applied override count can differ from patched nodes when a basename fans out.
 
     EnsureOverrideIndicesBuilt();
     if (sOverrideDatabase.taggedEntries == nullptr || sOverrideDatabase.taggedCount == 0) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: sOverrideDatabase.taggedEntries is empty\n");
         return false;
     }
     if (archiveBase == nullptr || IsEmpty(archiveBaseLower)) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: archiveBase is null or tag is empty\n");
         return false;
     }
     if (sourceHeap == nullptr) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: sourceHeap is null\n");
         return false;
     }
     if (archiveHeap == nullptr) {
@@ -3450,18 +3455,22 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
 
     u16 tagId = 0;
     if (!FindArchiveTagId(sOverrideDatabase, archiveBaseLower, tagId)) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: FindArchiveTagId failed for tag=%s\n", archiveBaseLower);
         return false;
     }
 
     u32 rangeStart = 0;
     u32 rangeEnd = 0;
     if (!FindArchiveTagRangeById(sOverrideDatabase, tagId, rangeStart, rangeEnd)) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: FindArchiveTagRangeById failed for tag=%s, tagId=%d\n", archiveBaseLower, tagId);
         return false;
     }
     const u32 taggedCandidates = rangeEnd - rangeStart;
+    OS::Report("[Pulsar Log] ApplyLooseOverrides: tag=%s has %u candidates\n", archiveBaseLower, taggedCandidates);
 
     ARC::Handle handle;
     if (!ARC::InitHandle(archiveBase, &handle)) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: ARC::InitHandle failed\n");
         return false;
     }
 
@@ -3469,6 +3478,7 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
     U8Node* nodes = reinterpret_cast<U8Node*>(archiveBase + header->nodeOffset);
     const u32 nodeCount = nodes[0].dataSize;
     if (nodeCount == 0) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: nodeCount is 0\n");
         return false;
     }
 
@@ -3646,6 +3656,7 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
             break;
         }
     }
+    OS::Report("[Pulsar Log] ApplyLooseOverrides: needsRepack=%d\n", needsRepack);
 
     u32 patchedNodes = 0;
     if (!needsRepack) {
@@ -3665,6 +3676,7 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
     const u32 dataStart = GetFileDataStart(header);
     // Repack keeps metadata and rewrites the payload region.
     if (dataStart == 0 || dataStart > archiveSize) {
+        OS::Report("[Pulsar Log] ApplyLooseOverrides: invalid dataStart=%u, archiveSize=%u\n", dataStart, archiveSize);
         return false;
     }
 
@@ -3701,11 +3713,13 @@ bool ApplyLooseOverrides(const char* archiveBaseLower, u8*& archiveBase, u32& ar
     for (u32 i = 0; i < candCount; ++i) {
         EGG::Heap* candidate = candidates[i];
         const u32 available = candidate != nullptr ? candidate->getAllocatableSize(0x20) : 0;
+        OS::Report("[Pulsar Log] Candidate %u: heap=%p, available=%u, target=%u\n", i, candidate, available, newSize);
         if (candidate == nullptr || candidate == archiveHeap) continue;
         if (available < newSize) continue;
         repackHeap = candidate;
         break;
     }
+    OS::Report("[Pulsar Log] repackHeap chosen: original=%u, new=%u, growth=%u, repackHeap=%p (archiveHeap=%p)\n", originalArchiveSize, newSize, growth, repackHeap, archiveHeap);
 
     const bool allowSourceHeap = (growth <= kOverrideMaxGrowthOnSourceHeap);
     bool triedSourceHeap = false;

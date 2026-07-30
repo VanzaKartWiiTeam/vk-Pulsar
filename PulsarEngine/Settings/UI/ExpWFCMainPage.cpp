@@ -3,7 +3,6 @@
 #include <Settings/UI/ExpWFCMainPage.hpp>
 #include <UI/UI.hpp>
 #include <UI/PlayerCount.hpp>
-#include <Network/Rating/PlayerRating.hpp>
 
 namespace Pulsar {
 namespace Network {
@@ -26,7 +25,6 @@ ExpWFCMain::ExpWFCMain() {
 }
 
 void ExpWFCMain::OnInit() {
-    PointRating::ResetRemotePrestigeRanks();
     Network::REGIONID = System::sInstance->GetInfo().GetWiimmfiRegion();
     this->InitControlGroup(8); //5 controls usually + settings button (5) + playerCount (6) + rankInfo (7)
     WFCMainMenu::OnInit();
@@ -48,7 +46,7 @@ void ExpWFCMain::OnInit() {
     this->AddControl(7, rankInfo, 0);
     ControlLoader rankLoader(&this->rankInfo);
     rankLoader.Load(UI::buttonFolder, "RankButton", "VRButton", nullptr);
-    this->rankInfo.isHidden = false;
+    this->rankInfo.isHidden = true;
 
     this->topSettingsPage = SettingsPanel::id;
 }
@@ -63,7 +61,7 @@ void ExpWFCMain::BeforeControlUpdate() {
     info.intToPass[0] = nTotal;
     this->playerCount.SetTextBoxMessage("go", BMG_PLAYER_COUNT, &info);
 
-    this->rankInfo.isHidden = false;
+    this->rankInfo.isHidden = true;
 }
 
 void ExpWFCMain::OnSettingsButtonClick(PushButton& pushButton, u32 r5) {
@@ -107,7 +105,7 @@ void ExpWFCModeSel::InitButton(ExpWFCModeSel& self) {
     u32 br = 5000;
     if (rksysMgr->curLicenseId >= 0) {
         RKSYS::LicenseMgr& license = rksysMgr->licenses[rksysMgr->curLicenseId];
-        vr = static_cast<u32>(PointRating::GetUserVR(rksysMgr->curLicenseId) * 100.0f);
+        vr = license.vr.points;
         br = license.br.points;
     }
     
@@ -164,7 +162,7 @@ void ExpWFCModeSel::BeforeControlUpdate() {
     u32 br = 5000;
     if (rksysMgr->curLicenseId >= 0) {
         RKSYS::LicenseMgr& license = rksysMgr->licenses[rksysMgr->curLicenseId];
-        vr = static_cast<u32>(PointRating::GetUserVR(rksysMgr->curLicenseId) * 100.0f);
+        vr = license.vr.points;
         br = license.br.points;
     }
 

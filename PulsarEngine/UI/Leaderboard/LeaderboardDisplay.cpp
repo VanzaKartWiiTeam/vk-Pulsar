@@ -5,7 +5,6 @@
 #include <MarioKartWii/RKNet/USER.hpp>
 #include <UI/UI.hpp>
 #include <PulsarSystem.hpp>
-#include <Network/Rating/PlayerRating.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -47,13 +46,6 @@ void fillLeaderboardResults(int count, CtrlRaceResult** results) {
                 results[i]->FillFinishTime(playerId);
             } else if (displayLeaderboardType == LEADERBOARD_DISPLAY_NAMES) {
                 results[i]->FillName(playerId);
-                const u8 rank = PointRating::GetPlayerPrestigeRank(playerId);
-                nw4r::lyt::TextBox* name = static_cast<nw4r::lyt::TextBox*>(results[i]->layout.GetPaneByName("player_name"));
-                if (rank > 0 && rank <= 8 && name != nullptr && name->stringBuf != nullptr) {
-                    wchar_t rankedName[64]; rankedName[0] = static_cast<wchar_t>(0xF07C + rank); rankedName[1] = L' ';
-                    u32 n = 0; for (; n < 61 && name->stringBuf[n] != L'\0'; ++n) rankedName[n + 2] = name->stringBuf[n];
-                    rankedName[n + 2] = L'\0'; name->SetString(rankedName, 0);
-                }
             } else if (displayLeaderboardType == LEADERBOARD_DISPLAY_FC) {
                 if (playerId < 12) {
                     u8 aid = RKNet::Controller::sInstance->aidsBelongingToPlayerIds[playerId];

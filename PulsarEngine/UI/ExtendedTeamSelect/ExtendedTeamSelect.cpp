@@ -2,6 +2,7 @@
 #include <MarioKartWii/UI/Page/Other/FriendRoom.hpp>
 #include <MarioKartWii/UI/Page/Other/Message.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
+extern "C" void OSReport(const char* format, ...);
 #include <Network/GPReport.hpp>
 #include <core/nw4r/ut/Misc.hpp>
 
@@ -55,10 +56,13 @@ ExtendedTeamSelect::ExtendedTeamSelect() {
 }
 
 void ExtendedTeamSelect::OnInit() {
+    OSReport("[ExtendedTeamSelect] OnInit starting...\n");
     MenuInteractable::OnInit();
+    OSReport("[ExtendedTeamSelect] OnInit finished.\n");
 }
 
 void ExtendedTeamSelect::BeforeEntranceAnimations() {
+    OSReport("[ExtendedTeamSelect] BeforeEntranceAnimations starting...\n");
     MenuInteractable::BeforeEntranceAnimations();
 
     Pages::FriendRoomManager* friendRoomManager = SectionMgr::sInstance->curSection->Get<Pages::FriendRoomManager>();
@@ -75,9 +79,11 @@ void ExtendedTeamSelect::BeforeEntranceAnimations() {
     this->shouldDisconnect = false;
 
     this->teamPlayerArrows[0].SelectInitial(0);
+    OSReport("[ExtendedTeamSelect] BeforeEntranceAnimations finished.\n");
 }
 
 void ExtendedTeamSelect::BeforeExitAnimations() {
+    OSReport("[ExtendedTeamSelect] BeforeExitAnimations starting...\n");
     MenuInteractable::BeforeExitAnimations();
 
     // Report team info to GPCM
@@ -92,6 +98,7 @@ void ExtendedTeamSelect::BeforeExitAnimations() {
             Network::Report("wl:mkw_extended_teams", buffer);
         }
     }
+    OSReport("[ExtendedTeamSelect] BeforeExitAnimations finished.\n");
 }
 
 void ExtendedTeamSelect::OnResume() {
@@ -214,6 +221,7 @@ UIControl* ExtendedTeamSelect::CreateExternalControl(u32 id) {
 }
 
 UIControl* ExtendedTeamSelect::CreateControl(u32 id) {
+    OSReport("[ExtendedTeamSelect] CreateControl(id=%d) starting...\n", id);
     const u32 count = this->controlCount;
     this->controlCount++;
     if (id == INSTRUCTION_TEXT) {
@@ -287,9 +295,12 @@ UIControl* ExtendedTeamSelect::CreateControl(u32 id) {
 }
 
 void ExtendedTeamSelect::OnBackPress(u32 hudSlotId) {
+    OSReport("[ExtendedTeamSelect] OnBackPress starting...\n");
     if (!this->manager->hasFriendRoomStarted) {
         this->nextPageId = PAGE_NONE;
+        OSReport("[ExtendedTeamSelect] Calling EndStateAnimated...\n");
         this->EndStateAnimated(1, 30.0f);
+        OSReport("[ExtendedTeamSelect] EndStateAnimated returned.\n");
     }
 }
 

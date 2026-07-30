@@ -13,8 +13,8 @@
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceBalloon.hpp>
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceRankNum.hpp>
 #include <MarioKartWii/Race/RaceInfo/RaceInfo.hpp>
-#include <Network/Rating/PlayerRating.hpp>
 
+extern "C" void OSReport(const char* format, ...);
 
 namespace Pulsar {
 namespace UI {
@@ -43,6 +43,8 @@ void PrepareOnlinePages(Pages::FriendRoomWaiting* _this) {
         }
     }
     PageId nextPageId = PAGE_CHARACTER_SELECT;
+    OSReport("[Pulsar LOG] PrepareOnlinePages: context=0x%08X, PULSAR_EXTENDEDTEAMS=%d, IsContext=%d, startedGameMode=%d\n",
+             System::sInstance->GetContext(), PULSAR_EXTENDEDTEAMS, System::sInstance->IsContext(PULSAR_EXTENDEDTEAMS), friendRoomManager ? friendRoomManager->startedGameMode : -1);
     if (System::sInstance->IsContext(PULSAR_EXTENDEDTEAMS) && (friendRoomManager->startedGameMode == 0 || friendRoomManager->startedGameMode == 2 || friendRoomManager->startedGameMode == 3)) {
         _this->countdown.SetInitial(86400.0f);
         nextPageId = static_cast<PageId>(PULPAGE_EXTENDEDTEAMSELECT);
@@ -194,31 +196,24 @@ kmCall(0x807eb308, CtrlRace2DMapCharacter_CalcTransform);
 kmCall(0x807eaf1c, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 kmCall(0x807eb9d4, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 
-void CtrlRaceNameBalloon_refresh(CtrlRaceNameBalloon* _this, u8 hudSlotId) {
-    _this->UpdateInfo(hudSlotId);
-    const u8 playerId = static_cast<u8>(_this->nameSlotId);
-    if (playerId < 12) {
-        const u8 rank = PointRating::GetPlayerPrestigeRank(playerId);
-        nw4r::lyt::TextBox* name = static_cast<nw4r::lyt::TextBox*>(_this->layout.GetPaneByName("chara_name"));
-        if (rank > 0 && rank <= 8 && name != nullptr && name->stringBuf != nullptr) {
-            wchar_t text[64];
-            text[0] = static_cast<wchar_t>(0xF07C + rank);
-            text[1] = L' ';
-            u32 i = 0;
-            for (; i < 61 && name->stringBuf[i] != L'\0'; ++i) text[i + 2] = name->stringBuf[i];
-            text[i + 2] = L'\0';
-            name->SetString(text, 0);
-        }
-    }
+void CtrlRaceNameBalloon_refresh(CtrlRaceNameBalloon* _this, u8 playerId) {
+    _this->UpdateInfo(playerId);
     if (ExtendedTeamManager::IsActivated()) {
         u8 r, g, b;
         ExtendedTeamSelect::GetTeamColor(ExtendedTeamManager::sInstance->GetPlayerTeam(playerId), r, g, b);
         nw4r::lyt::TextBox* characterName = (nw4r::lyt::TextBox*)_this->layout.GetPaneByName("chara_name");
         nw4r::lyt::Material* mat = characterName->GetMaterial();
+
         characterName->color1[0] = nw4r::ut::Color(r, g, b, 255);
-        mat->tevColours[1].r = 255; mat->tevColours[1].g = 255; mat->tevColours[1].b = 255;
+
+        mat->tevColours[1].r = 255;
+        mat->tevColours[1].g = 255;
+        mat->tevColours[1].b = 255;
+
         if (static_cast<Pulsar::ExtendedTeamsLine>(Pulsar::Settings::Mgr::Get().GetUserSettingValue(static_cast<Pulsar::Settings::UserType>(Pulsar::Settings::SETTINGSTYPE_EXTENDEDTEAMS), Pulsar::RADIO_EXTENDEDTEAMSLINE)) == Pulsar::EXTENDEDTEAMS_LINE_TEAM) {
-            for (int i = 0; i < 4; i++) _this->layout.GetPaneByName("line")->SetVtxColor(i, nw4r::ut::Color(r, g, b, 255));
+            for (int i = 0; i < 4; i++) {
+                _this->layout.GetPaneByName("line")->SetVtxColor(i, nw4r::ut::Color(r, g, b, 255));
+            }
         }
     }
 }
