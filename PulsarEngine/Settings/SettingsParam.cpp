@@ -8,7 +8,7 @@ namespace Pulsar {
 namespace Settings {
 
 u8 Params::radioCount[Params::pageCount] ={
-    4, 5, 5, 5, 2, //menu, race, host, OTT, KO
+    4, 5, 6, 5, 2, //menu, race, host (6th radio = ranked friend room), OTT, KO
     2,              //Extended Teams
     0
 };
@@ -18,7 +18,7 @@ u8 Params::buttonsPerPagePerRow[Params::pageCount][Params::maxRadioCount] = //fi
 {
     { 2, 2, 3, 2, 0, 0, 0, 0 }, //Menu
     { 2, 2, 2, 2, 3, 0, 0, 0 }, //Race: Mii (2), Speedup (2), Battle (2), FPS (2), SOM (3)
-    { 2, 2, 4, 2, 2, 0, 0, 0 }, //Host
+    { 2, 2, 4, 2, 2, 2, 0, 0 }, //Host: last row is the ranked friend room toggle
     { 3, 3, 2, 2, 2, 0, 0, 0 }, //OTT
     { 2, 2, 0, 0, 0, 0, 0, 0 }, //KO
     { 2, 2, 0, 0, 0, 0, 0, 0 }, //Extended Teams

@@ -43,6 +43,7 @@ enum Context {
     PULSAR_KOFINAL,
     PULSAR_STARTMOGI,
     PULSAR_EXTENDEDTEAMS,
+    PULSAR_VR, //ranked friend room
     PULSAR_CONTEXT_COUNT,
 };
 

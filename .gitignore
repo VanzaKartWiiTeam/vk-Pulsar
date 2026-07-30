@@ -86,3 +86,12 @@ KamekLinker/obj/Kamek.csproj.nuget.g.props
 KamekLinker/obj/project.assets.json
 KamekLinker/obj/Release/net8.0/Kamek.csproj.FileListAbsolute.txt
 
+KamekLinker/Kamek.pdb
+KamekLinker/Kamek.exe
+KamekLinker/Kamek.pdb
+KamekLinker/bin/Release/net8.0/Kamek.deps.json
+KamekLinker/bin/Release/net8.0/Kamek.exe
+KamekLinker/bin/Release/net8.0/Kamek.pdb
+KamekLinker/bin/Release/net8.0/Kamek.runtimeconfig.json
+PulsarEngine/Extra/DebugMenuDriver.cpp.disabled
+KamekLinker/Kamek.exe

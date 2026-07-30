@@ -1,5 +1,7 @@
 #include <Network/PacketExpansion.hpp>
 
+extern "C" void OSReport(const char* format, ...);
+
 namespace Pulsar {
 namespace Network {
 
@@ -124,7 +126,11 @@ void CheckPacket(CustomRKNetController* controller, RKNet::RACEPacketHeader& pac
     const u32 calcCRC = OS::CalcCRC32(&packet, size);
     packet.crc32 = recvCRC;
     bool disconnect = false;
-    if(recvCRC != calcCRC) disconnect = true;
+    if(recvCRC != calcCRC) {
+        disconnect = true;
+        //DIAGNOSTIC: only fires on the reject path, so it cannot flood the log.
+        OSReport("[VK KICK] aid=%u CRC mismatch recv=0x%08X calc=0x%08X size=%u\n", aid, recvCRC, calcCRC, size);
+    }
     else {
         u32* lastUsedBufferAid = &controller->lastReceivedBufferUsed[aid][0];
         SplitRACEPointers* recv = controller->splitReceivedRACEPackets[lastUsedBufferAid[0]][aid];
@@ -136,7 +142,12 @@ void CheckPacket(CustomRKNetController* controller, RKNet::RACEPacketHeader& pac
 
             const u8 curSize = sizes[i]; //transmitted in packet
             if(curSize != 0) {
-                if(curHolder->bufferSize < curSize) disconnect = true;
+                if(curHolder->bufferSize < curSize) {
+                    disconnect = true;
+                    //DIAGNOSTIC: a sender whose sub-packet is bigger than our buffer is
+                    //running a different Code.pul; this says which packet and by how much.
+                    OSReport("[VK KICK] aid=%u subPacket=%d sentSize=%u ourBuffer=%u\n", aid, i, curSize, curHolder->bufferSize);
+                }
             }
         }
     }

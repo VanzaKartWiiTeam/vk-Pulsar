@@ -10,12 +10,53 @@
 #include <UI/UI.hpp>
 #include <Network/Rating/PlayerRating.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
+#include <include/c_wchar.h>
 
 namespace Pulsar {
 namespace PointRating {
 
+/*
+    Ratings are shown as the integer part and the hundredths run together, so an
+    internal 62.73 reads as 6273 VR. Under one unit only the hundredths are printed,
+    which is what makes a rating of 0.50 display as 50 VR rather than 050.
+*/
+void FormatRatingDigits(float rating, wchar_t* buffer, u32 bufferSize) {
+    int whole = (int)rating;
+    int centis = (int)((rating - (float)whole) * 100.0f + 0.5f);
+    if (centis >= 100) {
+        ++whole;
+        centis -= 100;
+    }
+    if (centis < 0) centis = -centis;
+
+    if (whole == 0)
+        swprintf(buffer, bufferSize, L"%d", centis);
+    else
+        swprintf(buffer, bufferSize, L"%d%02d", whole, centis);
+}
+
+/*
+    Replaces OnlineParams::CalcRank. Still the vanilla formula on purpose.
+
+    This is the seam where the prestige rank would take the place of the star above the
+    player name, and it is the other half of Config::RATING_RANK_REPLACES_STARS: the
+    send side already knows how to put the rank into SELECTPlayerData::starRank. What is
+    missing is the mapping. The return value indexes OnlineParams::rankBMG, an array of
+    BMG message ids, so a rank of up to MAX_RANK would run past the ids the game ships
+    and break the icon for everyone.
+
+    To finish it: determine in game which BMG id this return is offset from, add one
+    message per rank carrying the matching glyph, return our own index here, and flip
+    RATING_RANK_REPLACES_STARS. Both halves have to move together.
+*/
+extern "C" void OSReport(const char* format, ...);
+
 static u8 GetNameRatingIcon(u8 wheelType, u8 starRating) {
-    return wheelType * 4 + starRating;
+    const u8 result = wheelType * 4 + starRating;
+    // DIAGNOSTIC, remove once the BMG base is known: pairs each CalcRank input with the
+    // index it returns, to be correlated with the rankBMG dump in ExpWWLeaderboard.
+    OSReport("[VK RANKICON] CalcRank wheelType=%u starRank=%u -> idx=%u\n", wheelType, starRating, result);
+    return result;
 }
 kmBranch(0x805e3d38, GetNameRatingIcon);
 

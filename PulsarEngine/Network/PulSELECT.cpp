@@ -9,6 +9,8 @@
 #include <Settings/Settings.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 #include <Network/GPReport.hpp>
+#include <Network/Rating/PlayerRating.hpp>
+#include <Network/Rating/RatingNetwork.hpp>
 
 
 namespace Pulsar {
@@ -21,7 +23,10 @@ static bool IsRegionalRoom(RKNet::RoomType roomType) {
 static bool IsGroupedTrack(PulsarId id);
 
 void BeforeSELECTSend(RKNet::PacketHolder<PulSELECT>* packetHolder, PulSELECT* src, u32 len) { //len is sizeof(RKNet::SELECTPacket) by default
+    PointRating::TryDownloadMultiplier();
     const System* system = System::sInstance;
+
+    PointRating::Net::FillLocalPayload(src);
 
     const Network::Mgr& netMgr = system->netMgr;
     const u32 blockingCount = system->GetInfo().GetTrackBlocking();
@@ -63,6 +68,7 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
         src->pulVote = pulVote;
         src->voteVariantIdx[0] = 0;
         src->voteVariantIdx[1] = 0;
+        PointRating::Net::ClearPayload(src);
         src->blockedTrackCount = 0;
         src->curBlockingArrayIdx = 0;
         src->lastGroupedTrackPlayed = false;
@@ -113,6 +119,10 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
                 netMgr.lastGroupedTrackPlayed = src->lastGroupedTrackPlayed;
             }
         }
+    }
+
+    if (holder != nullptr && holder->packetSize == sizeof(PulSELECT)) {
+        PointRating::Net::CacheRemotePayload(aid, src);
     }
 
     memcpy(&dest, src, sizeof(PulSELECT));

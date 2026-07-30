@@ -13,6 +13,7 @@
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceBalloon.hpp>
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceRankNum.hpp>
 #include <MarioKartWii/Race/RaceInfo/RaceInfo.hpp>
+#include <Network/Rating/RankManager.hpp>
 
 extern "C" void OSReport(const char* format, ...);
 
@@ -196,8 +197,31 @@ kmCall(0x807eb308, CtrlRace2DMapCharacter_CalcTransform);
 kmCall(0x807eaf1c, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 kmCall(0x807eb9d4, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 
-void CtrlRaceNameBalloon_refresh(CtrlRaceNameBalloon* _this, u8 playerId) {
-    _this->UpdateInfo(playerId);
+/*
+    The parameter is the local HUD slot, not the player whose name is on screen; that
+    one is nameSlotId. Using the parameter for the badge handed it to the wrong player.
+
+    The badge is applied after UpdateInfo, which rewrites the pane and would otherwise
+    wipe it. The extended team colouring below deliberately still keys off hudSlotId,
+    exactly as before this change, so that feature keeps its current behaviour.
+*/
+void CtrlRaceNameBalloon_refresh(CtrlRaceNameBalloon* _this, u8 hudSlotId) {
+    _this->UpdateInfo(hudSlotId);
+
+    const u32 displayedPlayerId = _this->nameSlotId;
+    if (displayedPlayerId < 12) {
+        nw4r::lyt::TextBox* name =
+            static_cast<nw4r::lyt::TextBox*>(_this->layout.GetPaneByName("chara_name"));
+        if (name != nullptr && name->stringBuf != nullptr) {
+            wchar_t rankedName[64];
+            const PointRating::RankId rank = PointRating::Rank::GetForPlayer((u8)displayedPlayerId);
+            if (PointRating::Rank::PrefixWithBadge(rank, name->stringBuf, rankedName, 64)) {
+                name->SetString(rankedName, 0);
+            }
+        }
+    }
+
+    const u8 playerId = hudSlotId;
     if (ExtendedTeamManager::IsActivated()) {
         u8 r, g, b;
         ExtendedTeamSelect::GetTeamColor(ExtendedTeamManager::sInstance->GetPlayerTeam(playerId), r, g, b);

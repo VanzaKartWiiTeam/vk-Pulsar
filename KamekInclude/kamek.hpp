@@ -278,7 +278,14 @@ public:
         }
     }
 
+    static bool executed;
+
+    //Idempotent: the original boot point is not reached on every launch path (the
+    //homebrew channel route skips it), so a fallback trigger runs this later. Whichever
+    //fires first wins and the other becomes a no-op.
     static void Exec() {
+        if(executed) return;
+        executed = true;
         BootHook* next = nullptr;
         BootHook* cur = (BootHook*)nw4r::ut::List_GetNth(&list, 0);
         for(cur; cur != nullptr; cur = next) {

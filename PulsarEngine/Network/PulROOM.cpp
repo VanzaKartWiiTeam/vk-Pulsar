@@ -116,7 +116,9 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             | isStartItemRainWW << PULSAR_STARTITEMRAIN
             | (!isStartMogi && (isStartItemRainWW || isStartItemRainVS || isStartItemRainTeamVS)) << PULSAR_ITEMMODERAIN
             | isStartMogi << PULSAR_STARTMOGI
-            | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS;
+            | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS
+            //Ranked friend room: the host decides, so the flag has to reach the clients.
+            | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_RANKED) == HOSTSETTING_RANKED_ENABLED) << PULSAR_VR;
 
         OSReport("[Pulsar LOG] BeforeROOMSend: hostSystemContext=0x%08X (extendedTeams=%d)\n", destPacket->hostSystemContext, isExtendedTeams);
 

@@ -9,6 +9,7 @@
 #include <SlotExpansion/UI/ExpCupSelect.hpp>
 #include <SlotExpansion/UI/ExpansionUIMisc.hpp>
 #include <Network/PacketExpansion.hpp>
+#include <Settings/Settings.hpp>
 
 
 namespace Pulsar {
@@ -143,35 +144,60 @@ static void LoadCorrectTrackListBox(ControlLoader& loader, const char* folder, c
 }
 kmCall(0x807e5f24, LoadCorrectTrackListBox);
 
+//Offset che il Pack Creator somma agli id BMG per le voci tradotte (Builder.cs scrive
+//BMG_TRACKS + langOff + idx, e per le varianti 0x420000 + langOff + (idx<<4) + variantIdx).
+//Senza sommarlo qui il gioco chiede sempre e solo le voci della lingua di default.
+static u32 GetLanguageTrackOffset() {
+    const Language currentLanguage = static_cast<Language>(
+        Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_LANGUAGE, SCROLLER_LANGUAGE));
+    switch(currentLanguage) {
+        case LANGUAGE_ITALIAN:
+            return 0x8000;
+        case LANGUAGE_ENGLISH:
+        default:
+            return 0;
+    }
+}
+
+static u32 GetLanguageTrackBase() {
+    return BMG_TRACKS + GetLanguageTrackOffset();
+}
+
+//Lo schema vecchio era BMG_TRACKS + realId + (variantIdx << 12). Il Pack Creator non ha mai
+//scritto nulla a quegli id, quindi i nomi delle varianti non si risolvevano; e con variantIdx 8
+//(nome comune di una traccia con varianti) 8 << 12 vale 0x8000, cioe' esattamente l'offset
+//dell'italiano: la traccia con varianti pescava la voce tradotta anche a gioco in inglese.
 int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx) {
     u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
     if (CupsConfig::IsReg(pulsarId)) {
         u32 bmgBase = realId > 32 ? BMG_BATTLE : BMG_REGS;
         return bmgBase + realId;
     }
-    u32 bmgId = BMG_TRACKS;
-    realId += static_cast<u32>(variantIdx) << 12;
-    return bmgId + realId;
+    const u32 languageBase = GetLanguageTrackBase();
+
+    if (variantIdx == 8) variantIdx = 0;
+    if (variantIdx == 0 && CupsConfig::sInstance->GetTrack(pulsarId).variantCount == 0)
+        return languageBase + realId;
+
+    const u32 VARIANT_TRACKS_BASE = 0x400000;
+    return VARIANT_TRACKS_BASE + (realId << 4) + static_cast<u32>(variantIdx) + languageBase;
 }
 
 //BMG
 int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
-    u32 bmgId;
-    u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
-    if (CupsConfig::IsReg(pulsarId)) bmgId = realId > 32 ? BMG_BATTLE : BMG_REGS;
-    else {
-        bmgId = BMG_TRACKS;
+    u8 variantIdx = 0;
+    if (!CupsConfig::IsReg(pulsarId)) {
         const CupsConfig* cupsConfig = CupsConfig::sInstance;
-        if (cupsConfig == nullptr) return bmgId;
-        u8 variantIdx;
-        if (useCommonName) {
-            if (cupsConfig->GetTrack(pulsarId).variantCount > 0) variantIdx = 8;
-            else variantIdx = 0;
+        if (cupsConfig == nullptr) return BMG_TRACKS;
+        if (cupsConfig->GetTrack(pulsarId).variantCount > 0) {
+            if (useCommonName) {
+                const u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
+                return realId + GetLanguageTrackBase();
+            }
+            variantIdx = static_cast<u8>(cupsConfig->GetCurVariantIdx());
         }
-        else variantIdx = cupsConfig->GetCurVariantIdx();
-        realId += variantIdx << 12;
     }
-    return bmgId + realId;
+    return GetTrackVariantBMGId(pulsarId, variantIdx);
 }
 
 int GetTrackBMGByRowIdx(u32 cupTrackIdx) {

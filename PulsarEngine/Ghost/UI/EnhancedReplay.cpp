@@ -132,12 +132,27 @@ kmCall(0x80716064, PatchSoundIssues);
 
 
 
+extern "C" void OSReport(const char* format, ...);
+
 void* PatchMiiHeadsOpacity(MiiHeadsModel& model, Mii* mii, MiiDriverModel* driverModel, u32 r6, nw4r::g3d::ScnMdl::BufferOption option,
     u32 r8, u32 id) {
+    if (mii == nullptr) return nullptr;
     if(Raceinfo::sInstance != nullptr && id == 0) model.scnObjDrawOptionsIdx = 0xA;
     return model.InitModel(mii, driverModel, r6, option, r8, id);
 }
 kmCall(0x807dc0e8, PatchMiiHeadsOpacity);
+
+//Diagnostica temporanea sul secondo call site (0x807dc11c): e' il percorso che crasha
+//dentro InitModel, e passa id = -1. Logghiamo gli argomenti per capire cosa e' invalido.
+static void* LogMiiHeadsInit(MiiHeadsModel& model, Mii* mii, MiiDriverModel* driverModel, u32 r6,
+    nw4r::g3d::ScnMdl::BufferOption option, u32 r8, u32 id) {
+    OSReport("[VK MII] InitModel@807dc11c: model=%p mii=%p driverModel=%p r6=%d option=%d r8=0x%X id=%d\n",
+             &model, mii, driverModel, (int)r6, (int)option, r8, (int)id);
+    void* ret = model.InitModel(mii, driverModel, r6, option, r8, id);
+    OSReport("[VK MII] InitModel ritornato: %p\n", ret);
+    return ret;
+}
+kmCall(0x807dc11c, LogMiiHeadsInit);
 
 static void ChangeGhostOpacity(u8 focusedPlayerIdx) {
     const SectionId id = SectionMgr::sInstance->curSection->sectionId;

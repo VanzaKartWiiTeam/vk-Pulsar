@@ -70,6 +70,7 @@ enum HostSettings {
     SETTINGHOST_RADIO_CC = 2,
     SETTINGHOST_ALLOW_MIIHEADS = 3,
     SETTINGHOST_RADIO_THUNDERCLOUD = 4,
+    SETTINGHOST_RADIO_RANKED = 5, //last free radio slot: index 6 is taken by the scroller
     SETTINGHOST_SCROLL_GP_RACES = 0 + 6
 };
 
@@ -182,6 +183,12 @@ enum HostSettingMOGI {
     HOSTSETTING_MOGI_ENABLED
 };
 
+// When enabled the friend room counts towards VR, which is what PULSAR_VR carries.
+enum HostSettingRanked {
+    HOSTSETTING_RANKED_DISABLED,
+    HOSTSETTING_RANKED_ENABLED
+};
+
 enum HostSettingGPRACES {
     HOSTSETTING_GP_RACES_4,
     HOSTSETTING_GP_RACES_8,
@@ -283,7 +290,10 @@ enum Language {
 };
 
 enum {
-    SCROLLER_LANGUAGE = 0
+    //Come tutti gli altri scroller: +6 (Params::scrollerSettingOffset). Senza, si legge
+    //il byte del radio 0 invece del valore dello scroller, che SettingsPanel salva a 0+6,
+    //quindi IsItalian() era sempre falsa e i percorsi /Iace//Icene non venivano mai attivati.
+    SCROLLER_LANGUAGE = 0 + 6
 };
 
 }//namespace Pulsar

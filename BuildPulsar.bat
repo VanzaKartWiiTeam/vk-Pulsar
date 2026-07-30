@@ -19,8 +19,16 @@ SET "PULSAR=.\PulsarEngine"
 :: Change this as necessary depending on where you put CodeWarrior
 SET "CC="C:\Program Files (x86)\Freescale\CW for MPC55xx and MPC56xx 2.10\PowerPC_EABI_Tools\Command_Line_Tools\mwcceppc.exe""
 
-:: Riivolution Destination (change as necessary)
-SET "RIIVO="
+SET "RIIVO_C=C:\Users\brutt\Desktop\Dolphin-x64\User\Load\Riivolution\VKBeta\VKBeta"
+SET "RIIVO_E=E:\Dolphin-x64\User\Load\Riivolution\VKBeta\VKBeta"
+
+if %ErrorLevel% equ 0 (
+    if not exist "%RIIVO_C%\Binaries" mkdir "%RIIVO_C%\Binaries"
+    xcopy /Y build\*.pul "%RIIVO_C%\Binaries" /i /q
+    if not exist "%RIIVO_E%\Binaries" mkdir "%RIIVO_E%\Binaries"
+    xcopy /Y build\*.pul "%RIIVO_E%\Binaries" /i /q
+    echo Binaries copied to both C: and E: Riivolution folders
+)
 
 :: Compiler flags and folder
 SET CFLAGS=-I- -i %ENGINE% -i %GAMESOURCE% -i %PULSAR% ^
@@ -64,5 +72,5 @@ if %ErrorLevel% equ 0 if NOT "!RIIVO!" == "" (
 )
 
 :end
-::pause
+pause
 ENDLOCAL

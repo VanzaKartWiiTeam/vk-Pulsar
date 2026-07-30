@@ -106,6 +106,8 @@ static void CustomRoomDenyText(Pages::MessageBoxTransparent* msgBox, u32 bmgId, 
 }
 kmCall(0x805dd90c, CustomRoomDenyText);
 
+extern "C" void OSReport(const char* format, ...);
+
 SectionParams& FavouriteCombo(SectionParams& params) {
     const RKSYS::Mgr* rksysMgr = RKSYS::Mgr::sInstance;
     s32 curLicense = rksysMgr->curLicenseId;
@@ -116,6 +118,9 @@ SectionParams& FavouriteCombo(SectionParams& params) {
 
         const s32 charWeight = GetCharacterWeightClass(favChar);
         const s32 kartWeight = GetKartWeightClass(favKart);
+        OSReport("[VK FAV] licenza=%d favChar=0x%X favKart=0x%X charWeight=%d kartWeight=%d %s\n",
+                 (int)curLicense, (int)favChar, (int)favKart, (int)charWeight, (int)kartWeight,
+                 ((u32)favChar >= 0x18 && (u32)favChar <= 0x29) ? "<- e' un Mii" : "");
         if (kartWeight != -1) {
             if (charWeight == -1 || charWeight != kartWeight) {
                 switch (kartWeight) {

@@ -3,6 +3,8 @@
 #include <Settings/UI/ExpWFCMainPage.hpp>
 #include <UI/UI.hpp>
 #include <UI/PlayerCount.hpp>
+#include <Network/Rating/PlayerRating.hpp>
+#include <Network/Rating/RankManager.hpp>
 
 namespace Pulsar {
 namespace Network {
@@ -25,6 +27,7 @@ ExpWFCMain::ExpWFCMain() {
 }
 
 void ExpWFCMain::OnInit() {
+    PointRating::ResetRemotePrestigeRanks();
     Network::REGIONID = System::sInstance->GetInfo().GetWiimmfiRegion();
     this->InitControlGroup(8); //5 controls usually + settings button (5) + playerCount (6) + rankInfo (7)
     WFCMainMenu::OnInit();
@@ -35,18 +38,28 @@ void ExpWFCMain::OnInit() {
     this->settingsButton.SetOnClickHandler(this->onSettingsClick, 0);
     this->settingsButton.SetOnSelectHandler(this->onButtonSelectHandler);
 
+    /*
+        PlayerButton.brctr and RankButton.brctr already sit side by side, at x +60 and
+        -60 of the shared VRButton layout. Forcing the player count to x 0 was only
+        right while the rank button was hidden and it had to look centred on its own;
+        now that both are shown, their own positions are what keeps them apart.
+    */
     this->AddControl(6, playerCount, 0);
     ControlLoader loader(&this->playerCount);
     loader.Load(UI::buttonFolder, "PlayerButton", "VRButton", nullptr);
-    for (int i = 0; i < 4; ++i) {
-        this->playerCount.positionAndscale[i].position.x = 0.0f;
-    }
     this->playerCount.SetPosition(0.0f);
 
     this->AddControl(7, rankInfo, 0);
     ControlLoader rankLoader(&this->rankInfo);
+    /*
+        The layout name must stay "VRButton". UIAssets does ship a RankButton.brlyt, but
+        every one of these brctr embeds "VRButton" as its own layout, so pointing the
+        loader at RankButton.brlyt builds the control against panes it was not made for
+        and GetPaneByName returns null -> DSI exception at null+0xE in BeforeControlUpdate.
+    */
     rankLoader.Load(UI::buttonFolder, "RankButton", "VRButton", nullptr);
-    this->rankInfo.isHidden = true;
+    this->rankInfo.SetPosition(0.0f);
+    this->rankInfo.isHidden = false;
 
     this->topSettingsPage = SettingsPanel::id;
 }
@@ -61,7 +74,38 @@ void ExpWFCMain::BeforeControlUpdate() {
     info.intToPass[0] = nTotal;
     this->playerCount.SetTextBoxMessage("go", BMG_PLAYER_COUNT, &info);
 
-    this->rankInfo.isHidden = true;
+    /*
+        The rank of the active licence, drawn with the same badge glyph as the
+        leaderboard and the in-race name balloon. BMG_TEXT takes a raw string, so this
+        needs no new BMG entry; giving it a proper message would let it carry a label
+        the way the player count does.
+    */
+    const RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
+    const PointRating::RankId rank =
+        (rksys != nullptr && rksys->curLicenseId < 4) ? PointRating::Rank::GetLocal(rksys->curLicenseId) : 0;
+
+    wchar_t rankText[8];
+    const wchar_t glyph = PointRating::Rank::GetBadgeGlyph(rank);
+    if (glyph != 0) {
+        rankText[0] = glyph;
+        rankText[1] = L' ';
+        rankText[2] = (wchar_t)(L'0' + rank);
+        rankText[3] = L'\0';
+    } else {
+        rankText[0] = L'-';  // unranked
+        rankText[1] = L'\0';
+    }
+
+    // Guarded: writing to a pane the loaded layout does not have takes the whole page
+    // down with a null dereference, and that is not worth risking for a label.
+    if (this->rankInfo.layout.GetPaneByName("go") != nullptr) {
+        Text::Info rankTextInfo;
+        rankTextInfo.strings[0] = rankText;
+        this->rankInfo.SetTextBoxMessage("go", UI::BMG_TEXT, &rankTextInfo);
+        this->rankInfo.isHidden = false;
+    } else {
+        this->rankInfo.isHidden = true;
+    }
 }
 
 void ExpWFCMain::OnSettingsButtonClick(PushButton& pushButton, u32 r5) {
@@ -105,7 +149,9 @@ void ExpWFCModeSel::InitButton(ExpWFCModeSel& self) {
     u32 br = 5000;
     if (rksysMgr->curLicenseId >= 0) {
         RKSYS::LicenseMgr& license = rksysMgr->licenses[rksysMgr->curLicenseId];
-        vr = license.vr.points;
+        // The extended rating is stored divided by 100, so scale it back up to the
+        // displayed VR the button expects.
+        vr = static_cast<u32>(PointRating::GetUserVR(rksysMgr->curLicenseId) * 100.0f);
         br = license.br.points;
     }
     
@@ -162,7 +208,9 @@ void ExpWFCModeSel::BeforeControlUpdate() {
     u32 br = 5000;
     if (rksysMgr->curLicenseId >= 0) {
         RKSYS::LicenseMgr& license = rksysMgr->licenses[rksysMgr->curLicenseId];
-        vr = license.vr.points;
+        // The extended rating is stored divided by 100, so scale it back up to the
+        // displayed VR the button expects.
+        vr = static_cast<u32>(PointRating::GetUserVR(rksysMgr->curLicenseId) * 100.0f);
         br = license.br.points;
     }
 

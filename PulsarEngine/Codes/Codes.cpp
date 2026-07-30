@@ -132,5 +132,13 @@ kmWrite16(0x8064BC4E, 0x000010D7);
 kmWrite16(0x8064BCB6, 0x00000484);
 kmWrite16(0x8064BCC2, 0x000010D7);
 
+// Disable Data Save Reset for Region ID Change [Vega]
+// Without this the game compares the saved region id against the current one and, on a
+// mismatch, flags the save for reset. That wipes the license data (GetFavouriteCharacter
+// then returns -1) and leaves the menus initialising from an invalid save.
+// Present in rr-pulsar (Extra/Extra.cpp) and in the VanzaKart stable build; it was the
+// only hook the stable had that this branch was missing.
+kmWrite32(0x80544928, 0x7C601B78);
+
 }  // namespace Codes
 }  // namespace Pulsar

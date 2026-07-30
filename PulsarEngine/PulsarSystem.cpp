@@ -169,6 +169,7 @@ void System::UpdateContext() {
     bool isAllItemsCanLand = false;
     bool isKOFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
     bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+    bool isVR = false; //ranked friend room: decided by the host, obeyed by everyone
 
     const GameMode mode = racedataSettings.gamemode;
     Network::Mgr& netMgr = this->netMgr;
@@ -206,7 +207,8 @@ void System::UpdateContext() {
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
                         | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
-                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS;
+                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_RANKED) == HOSTSETTING_RANKED_ENABLED) << PULSAR_VR;
                     netMgr.hostContext = newContext;
                     OSReport("[Pulsar LOG] UpdateContext: Host compiled newContext=0x%08X (localTeams=%d)\n", newContext, isLocalExtendedTeams);
                 } else {
@@ -227,6 +229,7 @@ void System::UpdateContext() {
                 isAllItemsCanLand = newContext & (1 << PULSAR_ALLITEMSCANLAND);
                 isKOFinal = newContext & (1 << PULSAR_KOFINAL);
                 isExtendedTeams = newContext & (1 << PULSAR_EXTENDEDTEAMS);
+                isVR = newContext & (1 << PULSAR_VR);
                 if(isOTT) {
                     isUMTs &= newContext & (1 << PULSAR_UMTS);
                     isFeather &= newContext & (1 << PULSAR_FEATHER);
@@ -254,7 +257,10 @@ void System::UpdateContext() {
     }
     this->netMgr.hostContext = newContext;
 
-    u32 context = (isCT << PULSAR_CT) | (isHAW << PULSAR_HAW) | (isMiiHeads << PULSAR_MIIHEADS);
+    // PULSAR_VR sits outside the CT-only block: a ranked battle room has isCT false and
+    // still has to count towards BR.
+    u32 context = (isCT << PULSAR_CT) | (isHAW << PULSAR_HAW) | (isMiiHeads << PULSAR_MIIHEADS) |
+                  (isVR << PULSAR_VR);
     if(isCT) { //contexts that should only exist when CTs are on
         context |= (is200 << PULSAR_200) | (isFeather << PULSAR_FEATHER) | (isUMTs << PULSAR_UMTS) | (isMegaTC << PULSAR_MEGATC) | (isOTT << PULSAR_MODE_OTT) | (isKO << PULSAR_MODE_KO)
             | (isThunderCloud << PULSAR_THUNDERCLOUD)

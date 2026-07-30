@@ -13,10 +13,10 @@
 namespace Pulsar {
 namespace Network {
 //No disconnect for being idle (Bully)
-/*kmWrite32(0x80521408, 0x38000000);
+kmWrite32(0x80521408, 0x38000000);
 kmWrite32(0x8053EF6C, 0x38000000);
 kmWrite32(0x8053F0B4, 0x38000000);
-kmWrite32(0x8053F124, 0x38000000);*/
+kmWrite32(0x8053F124, 0x38000000);
 
 static bool ShouldResetTrackBlocking(SectionId id) {
     switch (id) {

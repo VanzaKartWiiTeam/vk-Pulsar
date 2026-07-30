@@ -9,6 +9,20 @@
 #include <IO/LooseArchiveOverrides.hpp>
 
 namespace Pulsar {
+
+//The boot point in kamek.cpp (0x80543BB8 on P) is not reached on every launch path:
+//with the homebrew channel integration that function never runs, so BootHook::Exec
+//never fired and System::sInstance stayed null, crashing every Pulsar page.
+//Archive decompression always runs during boot (Font.szs is the first one), so use it
+//as a guaranteed fallback. BootHook::Exec is idempotent, so this is a no-op whenever
+//the normal boot point did fire first.
+static void EnsureBootHooksRan() {
+    if(BootHook::executed) return;
+    OS::Report("[VK] boot point saltato: eseguo i BootHook dal fallback (%d in lista)\n",
+               (int)BootHook::list.count);
+    BootHook::Exec();
+}
+
 namespace IOOverrides {
 
 static void ClearCompressedArchive(ArchiveFile* file) {
@@ -76,6 +90,11 @@ static void SafeDecompress(ArchiveFile* file, const char* path, EGG::Heap* heap,
         FailDecompress(file);
         return;
     }
+
+    //Must run before ShouldApplyLooseOverrides: that probes the mods root and caches the
+    //result permanently, and its SD fallback needs System::sInstance. Probing first would
+    //cache a false negative and silently disable every loose override for the whole boot.
+    EnsureBootHooksRan();
 
     char archiveBaseLower[OVERRIDE_MAX_NAME];
     archiveBaseLower[0] = '\0';

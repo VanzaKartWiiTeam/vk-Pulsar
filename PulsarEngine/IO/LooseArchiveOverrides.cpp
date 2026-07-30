@@ -1322,10 +1322,28 @@ static bool ModsRootExists() {
     SetModsRootPath(kModsRoot);
     u32 modsIndex = 0;
     u32 modsEnd = 0;
+    const void* fst = OS::BootInfo::mInstance.FSTLocation;
+    const u32 fstCount = (fst != nullptr) ? static_cast<const FSTEntry*>(fst)[0].size : 0;
     sModsRootPresent = FindModsDirInFST(modsIndex, modsEnd);
+    OS::Report("[VK MODS] probe root='%s' FST=%p voci=%u trovataNelFST=%d\n",
+               kModsRoot, fst, fstCount, (int)sModsRootPresent);
+    //Diagnostica: elenca le voci di primo livello dell'FST per vedere cosa Riivolution ha creato.
+    if (fst != nullptr && fstCount > 1) {
+        const FSTEntry* e = static_cast<const FSTEntry*>(fst);
+        const char* names = reinterpret_cast<const char*>(fst) + fstCount * sizeof(FSTEntry);
+        u32 i = 1;
+        while (i < fstCount && i < 4000) {
+            const bool isDir = (e[i].typeName >> 24) != 0;
+            OS::Report("[VK FST] %s '%s'\n", isDir ? "DIR " : "file", names + (e[i].typeName & 0xFFFFFF));
+            i = isDir ? e[i].size : i + 1; //salta il contenuto: solo il primo livello
+        }
+    }
     if (!sModsRootPresent) {
         // Disc FST lookup is preferred; SD probing is only the fallback path.
         sModsRootPresent = ModsRootExistsOnSD();
+        IO* io = IO::sInstance;
+        OS::Report("[VK MODS] fallback SD: ioType=%d probeConsentito=%d esito=%d\n",
+                   (io != nullptr) ? (int)io->type : -1, (int)ShouldProbeSDModsPath(), (int)sModsRootPresent);
     }
     return sModsRootPresent;
 }
