@@ -2537,3 +2537,22 @@ displayFcAndCountryInResultFillTimeHookExit__Fv = 0x807f5968
 MD5Digest__FPCUcUiPUc = 0x800f0e08
 sprintf = 0x80011a2c
 PicturePaneExists__15LayoutUIControlFPCc = 0x8063e328
+
+# Countdown gamemode (portato da Insane Kart Wii)
+U32_MUSIC_SPEED = 0x808A10D8
+EndRaceEarly = 0x805342E8
+CountdownSymbol1 = 0x80570388
+CountdownSymbol2 = 0x805701EC
+Countdown4End = 0x8053F3C0
+Countdown5End = 0x80535908
+Countdown6End = 0x80798650
+Countdown7End = 0x8056FFE0
+Countdown8End = 0x805918DC
+Countdown9End = 0x806F9D20
+Countdown10End = 0x807EF7A8
+Countdown11End = 0x805948C8
+Countdown12End = 0x805887E4
+Countdown14End = 0x80574D7C
+Countdown15End = 0x8086060C
+Countdown16End = 0x807308BC
+EndCountdownRaceEnd = 0x80535354

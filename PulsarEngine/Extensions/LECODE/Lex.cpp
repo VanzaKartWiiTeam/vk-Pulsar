@@ -17,6 +17,7 @@ void LexMgr::Reset() {
     this->cann = nullptr;
     this->hiptList = nullptr;
     this->hiptLength = 0;
+    this->ctdn = nullptr;
 }
 
 const KMPHeader* LexMgr::LoadLEXAndKMP(u32, const char* kmpString) {
@@ -41,6 +42,9 @@ const KMPHeader* LexMgr::LoadLEXAndKMP(u32, const char* kmpString) {
                             break;
                         case CANN::magic:
                             self.cann = reinterpret_cast<Kart::Movement::CannonParams*>(data + sizeof(u32));
+                            break;
+                        case CTDN::magic:
+                            if(section->dataSize >= sizeof(u16)) self.ctdn = reinterpret_cast<CTDN*>(section);
                             break;
                         default:
                     }

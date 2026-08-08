@@ -52,6 +52,11 @@ struct RITP {
     static const u32 magic = 'RITP';
 };
 
+struct CTDN : public LEXSectionHeader {
+    static const u32 magic = 'CTDN';
+    u16 timeLimit[6];
+};
+
 class LexMgr {
     inline void Reset();
 public:
@@ -61,6 +66,7 @@ public:
     HIPT::List* hiptList;
     u32 hiptLength;
     Kart::Movement::CannonParams* cann;
+    CTDN* ctdn;
 };
 
 }//namespace LECODE
