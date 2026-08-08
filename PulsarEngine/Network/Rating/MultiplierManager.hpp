@@ -6,11 +6,16 @@
 /*
     The rating multiplier, composed from independent layers:
 
-        base  x  event  x  weekend  x  remote
+        event  x  weekend  x  remote  [ x beta ]
 
-    Only the remote layer is implemented today; the others return 1.0 and exist so a
-    seasonal event or a weekend bonus can be added later without touching a single
-    caller.  Adding one means filling in its function here, nothing else.
+    event   seasonal dates (Christmas, Halloween, MKWii's birthday...), see Config
+    weekend the rotating regional bonus, plus April Fools
+    remote  the value served at Config::MULTIPLIER_URL, 1.0 until it downloads
+    beta    a flat bonus on -DBETA builds
+
+    All the date-driven layers read the console RTC through SystemManager, since VanzaKart
+    has no server clock. Each layer is independent: switching one off means making it
+    return 1.0, and no caller changes.
 */
 
 namespace Pulsar {

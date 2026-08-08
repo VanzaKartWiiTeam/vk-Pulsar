@@ -92,6 +92,20 @@ void fillLeaderboardResults(int count, CtrlRaceResult** results) {
                     Text::Info textInfo;
                     textInfo.strings[0] = fcText;
 
+                    /*
+                        BMG_TEXT e non 0x251D: 0x251D risolve anche nella scena Race, ma non
+                        prende una stringa. FillName gli passa il Mii in Text::Info::miis[0]
+                        (807f536c chiama MiiGroup::GetMii e 807f5370 fa stw r3, 0x50(r1), cioe'
+                        info+0x48) e il messaggio formatta il nome del Mii: strings[0] non lo
+                        legge nessuno e la casella resta vuota.
+
+                        BMG_TEXT prima non funzionava per un motivo che stava negli asset, non
+                        qui: il messaggio 0x2849 esiste in Assets/RaceAssets.szs, ma con la
+                        escape (gruppo 2, tipo 0x0010) invece di (gruppo 2, tipo 0x0020), che e'
+                        quella che inserisce strings[0] e che infatti UIAssets.szs usa. Con la
+                        escape sbagliata SetTextBoxMessage non produceva il testo e il pane si
+                        teneva il nome. Corretto in RaceAssets (message/Common.bmg e Race.bmg).
+                    */
                     results[i]->SetTextBoxMessage("player_name", UI::BMG_TEXT, &textInfo);
                     results[i]->ResetTextBoxMessage("time");
                 }

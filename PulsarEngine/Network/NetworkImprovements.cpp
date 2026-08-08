@@ -1,5 +1,4 @@
 #include <kamek.hpp>
-#include <MarioKartWii/RKNet/User.hpp>
 #include <runtimeWrite.hpp>
 
 namespace Pulsar {
@@ -37,25 +36,35 @@ kmWrite16(0x800D771E, 3000);
 // Reduce NATNEG report retry delay from 1000ms to 500ms (addi r0, r3, 0x3e8 -> 0x1f4)
 kmWrite16(0x8011B6F6, 500);
 
-// Fix Ghost Player Bug [ImZeaora]
-kmWrite32(0x80662f5c, 0x60000000);
+/*
+    Fix Ghost Player Bug [ImZeaora] -- SOSPESO, sotto test.
 
-static u32 sUserPacketRefreshCounter = 0;
-static void UserUpdateWithMiiRefresh(RKNet::USERHandler* handler) {
-    // Call the original Update implementation.
-    handler->Update();
+    0x80662f5c cade dentro USERHandler::ImportNewPackets (0x80662ebc -> 0x8066300c), la funzione
+    che importa i pacchetti USER ricevuti dagli altri giocatori: sono quelli che portano i loro
+    Mii. Mettere un nop li' e' il candidato piu' probabile per il "?" al posto del Mii altrui.
 
-    // Once initialised, rebuild the send packet shortly after to pick up
-    // any Mii data that was not yet ready during Prepare().
-    // 300 frames @ 60 fps ≈ 5 seconds.
-    if (handler->isInitialized) {
-        sUserPacketRefreshCounter++;
-        if (sUserPacketRefreshCounter == 300) {
-            handler->CreateSendPacket();
-        }
-    }
-}
-kmCall(0x806579ac, UserUpdateWithMiiRefresh);
+    rr-pulsar, dove i Mii online si vedono, questa patch non ce l'ha (il resto di questo file e'
+    identico al suo). Se togliendola i Mii tornano, va rifatta in modo mirato invece che con un
+    nop cieco; se non cambia nulla si rimette e si cerca altrove.
+*/
+//kmWrite32(0x80662f5c, 0x60000000);
+
+/*
+    Qui c'erano due cose costruite sulla premessa che gli altri vedessero un "?" al posto del
+    nostro Mii: un retry che richiamava USERHandler::CreateSendPacket() ogni 20 frame finche' il
+    pacchetto non usciva con StoreData::invalid a 0, e una diagnostica sui pacchetti ricevuti.
+
+    La premessa era sbagliata. Il "?" nelle bolle in alto in GlobeSearch e' il segnaposto normale
+    per gli slot ancora liberi; quello che mancava davvero era la testa Mii sopra il globo, che
+    veniva cancellata a ogni frame da PatchGlobeSearchBMG (vedi Network/UI/NetworkUI.cpp).
+
+    Per la cronaca, verificato disassemblando: RFL::SetToWiFiPacket (0x800cc048) copia il bit
+    invalid senza guardarlo, e RFL::CheckValidRaw (0x800cb840) lato ricevente controlla CRC16,
+    createID e range dei campi ma non quel bit -- l'header Pulsar stesso lo commenta "doesn't
+    seem to have any effect?". Il retry inseguiva quindi un flag che non decide nulla, e comunque
+    arrivava dopo che il peer aveva gia' importato il primo pacchetto (GlobeSearch carica i Mii
+    una volta sola, latch a GlobeSearch+0x1cf0).
+*/
 
 }  // namespace Network
 }  // namespace Pulsar

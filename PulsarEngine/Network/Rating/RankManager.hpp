@@ -39,6 +39,11 @@ RankId GetForPlayer(u8 playerId);
 // Badge glyph for a rank, or 0 when the rank should not draw a badge.
 wchar_t GetBadgeGlyph(RankId rank);
 
+// The rank as it goes into a text string: the badge glyph when the font carries it,
+// the plain digit otherwise.  Never empty -- rank 0 reads "0".  Returns the number of
+// characters written, terminator excluded.
+u32 FormatLabel(RankId rank, wchar_t* dst, u32 dstLen);
+
 // Writes "<badge><space><name>" into dst.  Returns false and leaves dst untouched
 // when the rank draws no badge or the name does not fit.
 bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen);

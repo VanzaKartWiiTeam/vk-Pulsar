@@ -13,27 +13,23 @@
 namespace Pulsar {
 namespace Network {
 
-u32 REGIONID = 0xCC;
+u32 REGIONID = 0x68;
 extern void ResetTrackBlockingOnRoomEnd();
 
-// FIX: SectionLoadHook richiede void(*)() senza parametri.
-// Il regionId viene letto direttamente dal controller RKNet.
-// NOTA: il doppio controllo PULSAR_MODE_OTT nel sorgente RR originale
-// sembra un copia-incolla incompleto — il secondo branch è irraggiungibile.
 static void SetRegionId() {
     System* system = System::sInstance;
     if (system == nullptr) return;
     if (system->IsContext(PULSAR_STARTVKWW))
-        REGIONID = 0xCC;
+        REGIONID = 0x68;
     else if (system->IsContext(PULSAR_STARTOTTWW))
-        REGIONID = 0xCD;
+        REGIONID = 0x69;
     else if (system->IsContext(PULSAR_STARTITEMRAIN))
         REGIONID = 0x71;
     else {
         RKNet::Controller* controller = RKNet::Controller::sInstance;
         if (controller != nullptr) {
             u8 curRegion = controller->localStatusData.regionId;
-            if (REGIONID != 0xCD && REGIONID != 0x71) {
+            if (REGIONID != 0x69 && REGIONID != 0x71) {
                 REGIONID = curRegion;
             }
         }

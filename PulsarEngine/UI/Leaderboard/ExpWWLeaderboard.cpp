@@ -11,6 +11,7 @@
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/UI/Text/Text.hpp>
 #include <Network/Rating/PlayerRating.hpp>
+#include <Network/Rating/RatingManager.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <UI/UI.hpp>
 #include <include/c_stdlib.h>
@@ -36,14 +37,13 @@ namespace UI {
 
 typedef Pages::GPVSLeaderboardUpdate::Player PlayerEntry;
 
-typedef void (*FillDeltaFn)(CtrlRaceResult*, u32, u8);
+typedef void (*FillDeltaFn)(CtrlRaceResult*, s32, u8);
 typedef void (*ApplyExtraPageFn)(Page*);
 typedef void (*MarkLicensesDirtyFn)(void*);
 
 kmRuntimeUse(0x807f579c);
 kmRuntimeUse(0x8064f65c);
 kmRuntimeUse(0x80621410);
-kmRuntimeUse(0x807f5a50);
 static const FillDeltaFn sFillDelta = reinterpret_cast<FillDeltaFn>(kmRuntimeAddr(0x807f579c));
 static const ApplyExtraPageFn sApplyExtraPage = reinterpret_cast<ApplyExtraPageFn>(kmRuntimeAddr(0x8064f65c));
 static const MarkLicensesDirtyFn sMarkLicensesDirty = reinterpret_cast<MarkLicensesDirtyFn>(kmRuntimeAddr(0x80621410));
@@ -51,63 +51,34 @@ static const MarkLicensesDirtyFn sMarkLicensesDirty = reinterpret_cast<MarkLicen
 static const float RATING_DISPLAY_MAX = (float)PointRating::MAX_RATING;
 static const float RATING_DISPLAY_MIN = (float)PointRating::MIN_RATING;
 
-// The tail of CtrlRaceResult that drives the rolling score counter.
-struct CtrlRaceResult_Inputs {
-    u8 _00[0x178];
-    float timer;  // 0x178
-    bool playSfx;  // 0x17C
-    bool direction;  // 0x17D
-    u8 _17E[0x184 - 0x17E];
-    float step;  // 0x184
-    float current;  // 0x188
-    u32 target;  // 0x18C
-    u32 messageId;  // 0x190
-};
+/*
+    Both numbers on a row go through the vanilla FillScore / FillDelta.
 
-// Parked in messageId to mark a row as counting a float instead of an integer.
-static const u32 FLOAT_MODE_MAGIC = 0x1337CAFE;
+    The custom path this file used to take -- a float counter behind a vtable hook, plus
+    SetTextBoxMessage with BMG_TEXT -- could never draw anything here. BMG_TEXT (0x2849)
+    is a Pulsar message that only exists in the menu BMGs, so in the Race scene the id
+    does not resolve and the pane keeps the layout placeholder; writing TextBox::stringBuf
+    by hand does not help either, because the glyphs are built by Text::PaneHandler from
+    its own buffer, not from that string.
 
-void CtrlRaceResult_calcSelf_Hook(CtrlRaceResult* self) {
-    CtrlRaceResult_Inputs* inputs = reinterpret_cast<CtrlRaceResult_Inputs*>(self);
-
-    if (inputs->messageId != FLOAT_MODE_MAGIC) {
-        reinterpret_cast<void (*)(CtrlRaceResult*)>(kmRuntimeAddr(0x807f5a50))(self);
-        return;
-    }
-    if (inputs->timer <= 0.0f) return;
-
-    inputs->current += inputs->step;
-    inputs->timer -= 1.0f;
-
-    const float targetVal = *reinterpret_cast<float*>(&inputs->target);
-
-    bool finished = false;
-    if ((inputs->step > 0 && inputs->current >= targetVal) ||
-        (inputs->step < 0 && inputs->current <= targetVal)) {
-        inputs->current = targetVal;
-        finished = true;
-    }
-    if (!finished && inputs->timer <= 0.0f) {
-        inputs->current = targetVal;
-        finished = true;
-    }
-    if (finished) inputs->timer = 0.0f;
-
-    wchar_t buffer[64];
-    PointRating::FormatRatingDigits(inputs->current, buffer, sizeof(buffer) / sizeof(buffer[0]));
-    Text::Info info;
-    info.strings[0] = buffer;
-    self->SetTextBoxMessage("total_score", UI::BMG_TEXT, &info);
-
-    if (inputs->playSfx && !finished) self->PlaySound(0xde, -1);
+    None of it was needed: a rating is shown as whole*100 + hundredths run together, which
+    is just an integer. Scaling the internal value by 100 and handing it to the routines
+    the game already uses for the vanilla VR renders it for free, animation included.
+*/
+static u32 ToDisplayedRating(float internalRating) {
+    if (internalRating < 0.0f) internalRating = 0.0f;
+    return (u32)(internalRating * 100.0f + 0.5f);
 }
 
-kmWritePointer(0x808d3f04, CtrlRaceResult_calcSelf_Hook);
+static s32 ToDisplayedDelta(float internalDelta) {
+    const float rounding = (internalDelta >= 0.0f) ? 0.5f : -0.5f;
+    return (s32)(internalDelta * 100.0f + rounding);
+}
 
 struct RatingDisplay {
     float total;
+    float startTotal;
     float delta;
-    bool isFloat;
 };
 
 // The vanilla delta is a u16 difference, so a drop wraps around; bring it back.
@@ -117,37 +88,6 @@ static s32 NormalizeRatingDelta(s32 rawDelta) {
     if (rawDelta <= -HALF_RANGE) return rawDelta + FULL_RANGE;
     if (rawDelta >= HALF_RANGE) return rawDelta - FULL_RANGE;
     return rawDelta;
-}
-
-void FormatRatingDelta(float delta, wchar_t* buffer, u32 bufferSize) {
-    int whole = (int)delta;
-    int centis;
-    if (delta >= 0.0f) {
-        centis = (int)((delta - (float)whole) * 100.0f + 0.5f);
-        if (centis >= 100) {
-            ++whole;
-            centis -= 100;
-        }
-    } else {
-        centis = (int)((delta - (float)whole) * 100.0f - 0.5f);
-        if (centis <= -100) {
-            --whole;
-            centis += 100;
-        }
-    }
-    if (centis < 0) centis = -centis;
-
-    if (delta >= 0.0f) {
-        if (whole == 0)
-            swprintf(buffer, bufferSize, L"+%d", centis);
-        else
-            swprintf(buffer, bufferSize, L"+%d%02d", whole, centis);
-    } else {
-        if (whole == 0)
-            swprintf(buffer, bufferSize, L"-%d", centis);
-        else
-            swprintf(buffer, bufferSize, L"%d%02d", whole, centis);  // whole already signed
-    }
 }
 
 inline bool IsValidPlayerId(u8 playerId) {
@@ -229,8 +169,8 @@ RatingDisplay BuildRatingDisplay(u8 playerId, bool isBattle, const RacedataScena
             ClampRatingPair(current, oldRating, delta);
 
             display.total = current;
+            display.startTotal = oldRating;
             display.delta = delta;
-            display.isFloat = true;
             return display;
         }
     } else if (racePlayer.playerType == PLAYER_REAL_ONLINE) {
@@ -254,18 +194,21 @@ RatingDisplay BuildRatingDisplay(u8 playerId, bool isBattle, const RacedataScena
                 ClampRatingPair(current, oldRating, delta);
 
                 display.total = current;
+                display.startTotal = oldRating;
                 display.delta = delta;
-                display.isFloat = true;
                 return display;
             }
         }
     }
 
-    // Anything else keeps the vanilla integer presentation.
-    display.total = (float)racePlayer.rating.points;
+    /*
+        Anything else falls back to the scenario's own copy of the rating, which is stored
+        on the same internal scale, so the caller's x100 still yields the right digits.
+    */
+    display.startTotal = (float)racePlayer.rating.points;
     display.delta = (float)NormalizeRatingDelta(static_cast<s32>(menuPlayer.rating.points) -
                                                 static_cast<s32>(racePlayer.rating.points));
-    display.isFloat = false;
+    display.total = display.startTotal + display.delta;
     return display;
 }
 
@@ -314,6 +257,17 @@ void WWLeaderboardFillRows(Pages::WWLeaderboardUpdate* page) {
     if (rowCount > playerCount) rowCount = playerCount;
 
     PlayerEntry* sortedEntries = page->sortedArray;
+
+    const PointRating::RatingKind stake = PointRating::Manager::GetStake(raceScenario.settings);
+
+    // DIAGNOSTIC, remove with the [VK LB] lines in BuildRatingDisplay.
+    {
+        const RKNet::Controller* diagCtrl = RKNet::Controller::sInstance;
+        OSReport("[VK LB] gara rowCount=%u playerCount=%u isBattle=%d stake=%d roomType=%d rankedFroom=%d\n",
+                 rowCount, playerCount, (int)isBattle, (int)stake,
+                 diagCtrl != nullptr ? (int)diagCtrl->roomType : -1,
+                 (int)PointRating::Manager::IsRankedFroom());
+    }
 
     if (isBattle) {
         if (sortedEntries == nullptr) return;
@@ -373,36 +327,15 @@ void WWLeaderboardFillRows(Pages::WWLeaderboardUpdate* page) {
             const RatingDisplay display = BuildRatingDisplay(playerId, isBattle, raceScenario, menuScenario);
             const u32 messageId = isBattle ? 0x540 : 0x53f;
 
-            if (display.isFloat) {
-                float endVal = display.total;
-                const float startVal = endVal - display.delta;
+            const u32 displayedStart = ToDisplayedRating(display.startTotal);
+            const u32 displayedTotal = ToDisplayedRating(display.total);
+            const s32 displayedDelta = ToDisplayedDelta(display.delta);
 
-                // Hand the rolling counter float bounds and flag it via messageId.
-                CtrlRaceResult_Inputs* inputs = reinterpret_cast<CtrlRaceResult_Inputs*>(result);
-                inputs->current = startVal;
-                inputs->target = *reinterpret_cast<u32*>(&endVal);
-                inputs->step = display.delta / 60.0f;
-                inputs->timer = 60.0f;
-                inputs->messageId = FLOAT_MODE_MAGIC;
-                inputs->playSfx = true;
-                inputs->direction = (display.delta != 0.0f);
+            OSReport("[VK LB] row=%u playerId=%u start=%u -> total=%u delta=%d\n",  //DIAGNOSTIC
+                     row, playerId, displayedStart, displayedTotal, displayedDelta);
 
-                wchar_t buffer[64];
-                PointRating::FormatRatingDigits(startVal, buffer, sizeof(buffer) / sizeof(buffer[0]));
-                Text::Info info;
-                info.strings[0] = buffer;
-                result->SetTextBoxMessage("total_score", UI::BMG_TEXT, &info);
-                result->SetTextBoxMessage("total_point", messageId);
-
-                wchar_t deltaBuffer[64];
-                FormatRatingDelta(display.delta, deltaBuffer, sizeof(deltaBuffer) / sizeof(deltaBuffer[0]));
-                Text::Info deltaInfo;
-                deltaInfo.strings[0] = deltaBuffer;
-                result->SetTextBoxMessage("get_point", UI::BMG_TEXT, &deltaInfo);
-            } else {
-                result->FillScore((u32)display.total, messageId);
-                sFillDelta(result, static_cast<u32>(display.delta), DetermineAnimationVariant(row));
-            }
+            result->FillScore(displayedStart, messageId);
+            sFillDelta(result, displayedDelta, DetermineAnimationVariant(row));
         }
 
         result->FillName(playerId);

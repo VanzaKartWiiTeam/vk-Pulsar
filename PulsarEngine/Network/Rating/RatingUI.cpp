@@ -9,6 +9,8 @@
 #include <MarioKartWii/UI/Text/Text.hpp>
 #include <UI/UI.hpp>
 #include <Network/Rating/PlayerRating.hpp>
+#include <Network/Rating/RankManager.hpp>
+#include <Network/Rating/RatingConfig.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <include/c_wchar.h>
 
@@ -36,27 +38,14 @@ void FormatRatingDigits(float rating, wchar_t* buffer, u32 bufferSize) {
 }
 
 /*
-    Replaces OnlineParams::CalcRank. Still the vanilla formula on purpose.
+    Replaces OnlineParams::CalcRank with the vanilla formula, deliberately unchanged.
 
-    This is the seam where the prestige rank would take the place of the star above the
-    player name, and it is the other half of Config::RATING_RANK_REPLACES_STARS: the
-    send side already knows how to put the rank into SELECTPlayerData::starRank. What is
-    missing is the mapping. The return value indexes OnlineParams::rankBMG, an array of
-    BMG message ids, so a rank of up to MAX_RANK would run past the ids the game ships
-    and break the icon for everyone.
-
-    To finish it: determine in game which BMG id this return is offset from, add one
-    message per rank carrying the matching glyph, return our own index here, and flip
-    RATING_RANK_REPLACES_STARS. Both halves have to move together.
+    The prestige rank does not come through here: RatingHooks overwrites the three call
+    sites that feed SectionParams::combos[].rank with the badge index outright, so this
+    only still serves whatever else asks the game for a wheel-and-star index.
 */
-extern "C" void OSReport(const char* format, ...);
-
 static u8 GetNameRatingIcon(u8 wheelType, u8 starRating) {
-    const u8 result = wheelType * 4 + starRating;
-    // DIAGNOSTIC, remove once the BMG base is known: pairs each CalcRank input with the
-    // index it returns, to be correlated with the rankBMG dump in ExpWWLeaderboard.
-    OSReport("[VK RANKICON] CalcRank wheelType=%u starRank=%u -> idx=%u\n", wheelType, starRating, result);
-    return result;
+    return wheelType * 4 + starRating;
 }
 kmBranch(0x805e3d38, GetNameRatingIcon);
 
@@ -78,6 +67,65 @@ static float GetRatingForDisplay(Pages::SELECTStageMgr* mgr, u32 playerId, bool 
         return base + (float)remoteDecimalVR[aid][slot] / 100.0f;
     }
     return (float)(isBR ? mgr->infos[playerId].br : mgr->infos[playerId].vr);
+}
+
+/*
+    Check Members draws no rank of its own: neither the vanilla FillVRControl this function
+    replaces nor VoteControl::Fill ever reads OnlineParams::rankBMG, so the icon route that
+    serves the results screen cannot reach this page. The badge therefore goes into the name
+    string as a font glyph, which the pack's tt_kart_extension_font does carry.
+
+    The rank comes from SELECTStageMgr::infos, which already holds the aid and the slot on
+    that console: the race does not exist yet here, so Racedata is not an option.
+*/
+static RankId GetEntryRank(const Pages::SELECTStageMgr* mgr, u32 playerId, bool isLocal) {
+    if (isLocal) {
+        const RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
+        if (rksys == nullptr || rksys->curLicenseId < 0 ||
+            rksys->curLicenseId >= (int)Config::MAX_LICENSES) {
+            return 0;
+        }
+        return Rank::GetLocal(rksys->curLicenseId);
+    }
+    return Rank::GetRemote(mgr->infos[playerId].aid, mgr->infos[playerId].hudSlotid);
+}
+
+/*
+    Rewriting the pane with TextBox::SetString after SetTextBoxMessage does not stick: the
+    diagnostic showed the pane and its buffer both valid and the rank correct, and the name
+    still came out unprefixed -- the buffer the message allocated is sized for the message
+    and the extra characters go nowhere.
+
+    So the name is composed and handed over as one BMG_TEXT string instead, which is the
+    same thing the Rank button on the WFC page does and that one demonstrably draws. The
+    Mii name comes from RFL::AdditionalInfo, since BMG 0x251d would otherwise resolve it
+    inside the message and leave no room for a prefix.
+
+    One buffer per entry: SetTextBoxMessage is called once when the page is built, not per
+    frame, so a local array would be gone by the time the control draws.
+*/
+static wchar_t sRankedNames[12][32];
+
+static void SetNameWithRank(LayoutUIControl& ctrl, Pages::SELECTStageMgr* mgr, u32 idx, u32 playerId,
+                            RankId rank) {
+    Text::Info nameInfo;
+    nameInfo.miis[0] = mgr->miiGroup.GetMii((u8)playerId);
+
+    const Mii* mii = nameInfo.miis[0];
+    if (rank == 0 || idx >= 12 || mii == nullptr) {
+        ctrl.SetTextBoxMessage("mii_name", 0x251d, &nameInfo);
+        return;
+    }
+
+    wchar_t* dst = sRankedNames[idx];
+    if (!Rank::PrefixWithBadge(rank, mii->info.name, dst, 32)) {
+        ctrl.SetTextBoxMessage("mii_name", 0x251d, &nameInfo);
+        return;
+    }
+
+    Text::Info rankedInfo;
+    rankedInfo.strings[0] = dst;
+    ctrl.SetTextBoxMessage("mii_name", UI::BMG_TEXT, &rankedInfo);
 }
 
 static void FormatRatingText(float rating, bool hasDecimal, wchar_t* buf, Text::Info* info, u32* valMsg, u32* unitMsg, u32 unitId) {
@@ -112,10 +160,8 @@ static void FillVRControl(Pages::VR* page, u32 idx, u32 playerId, u32 team, u8 t
         ctrl.SetMiiPane("chara_icon", mgr->miiGroup, playerId, 2);
         ctrl.SetMiiPane("chara_icon_sha", mgr->miiGroup, playerId, 2);
         
-        Text::Info nameInfo;
-        nameInfo.miis[0] = mgr->miiGroup.GetMii((u8)playerId);
-        ctrl.SetTextBoxMessage("mii_name", 0x251d, &nameInfo);
-        
+        SetNameWithRank(ctrl, mgr, idx, playerId, GetEntryRank(mgr, playerId, isLocal));
+
         wchar_t buf[64];
         Text::Info ptsInfo;
         u32 valMsg = 0, unitMsg = 0;

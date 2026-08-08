@@ -38,8 +38,8 @@ static int GetFriendsSearchType(int curType, u32 regionId) {
     register u8 friendRegionId;
     asm(mr friendRegionId, r0;);
     u8 region = System::sInstance->GetInfo().GetWiimmfiRegion();
-    if (region == 0xCC || region == 0xCD || region == 0x71 ||
-        friendRegionId == 0xCC || friendRegionId == 0xCD || friendRegionId == 0x71) {
+    if (region == 0x68 || region == 0x69 || region == 0x71 ||
+        friendRegionId == 0x68 || friendRegionId == 0x69 || friendRegionId == 0x71) {
         if (curType == 7) return 6;
         return 9;
     }

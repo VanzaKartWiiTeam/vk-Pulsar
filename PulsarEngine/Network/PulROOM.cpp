@@ -83,19 +83,21 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
 
         if (isStartMogi) {
             destPacket->message = 0; // Force Solo VS
-        } else if (originalMessage >= 4 && originalMessage <= 8) {
-            if (originalMessage == 8) { // Item Rain Team VS (8)
-                destPacket->message = 1; // Team VS
-            } else {
-                destPacket->message = 0; // VS
-            }
+        } else if (originalMessage >= 4 && originalMessage <= 6) {
+            destPacket->message = 0; // VS
         }
 
         const u8 isStartVKWW = !isStartMogi && (originalMessage == 4);
         const u8 isStartOTWW  = !isStartMogi && (originalMessage == 5);
         const u8 isStartItemRainWW = !isStartMogi && (originalMessage == 6);
-        const u8 isStartItemRainVS = !isStartMogi && (originalMessage == 7);
-        const u8 isStartItemRainTeamVS = !isStartMogi && (originalMessage == 8);
+
+        //Item mode of the room: the host's Race settings scroller decides, so the flag has to
+        //reach the clients. This replaces the two froom mode buttons (Item Rain VS / Team VS)
+        //that used to be the only way in.
+        const u8 raceItemMode = settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE);
+        const bool isHostItemRain = !isStartMogi && raceItemMode == RACESETTING_ITEMMODE_ITEMRAIN;
+        const bool isHostCountdown = !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW
+            && raceItemMode == RACESETTING_ITEMMODE_COUNTDOWN;
 
         const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED) && destPacket->message == 0; //KO only enabled for normal GPs
         const u8 koFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
@@ -114,11 +116,10 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             | isStartVKWW << PULSAR_STARTVKWW   // OPT WW start from friend room
             | isStartOTWW  << PULSAR_STARTOTTWW  // OTT WW start from friend room
             | isStartItemRainWW << PULSAR_STARTITEMRAIN
-            | (!isStartMogi && (isStartItemRainWW || isStartItemRainVS || isStartItemRainTeamVS)) << PULSAR_ITEMMODERAIN
+            | (isHostItemRain || isStartItemRainWW) << PULSAR_ITEMMODERAIN
             | isStartMogi << PULSAR_STARTMOGI
-            | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS
-            //Ranked friend room: the host decides, so the flag has to reach the clients.
-            | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_RANKED) == HOSTSETTING_RANKED_ENABLED) << PULSAR_VR;
+            | isHostCountdown << PULSAR_MODE_COUNTDOWN
+            | (isExtendedTeams && !isStartMogi && !isStartVKWW && !isStartOTWW && !isStartItemRainWW) << PULSAR_EXTENDEDTEAMS;
 
         OSReport("[Pulsar LOG] BeforeROOMSend: hostSystemContext=0x%08X (extendedTeams=%d)\n", destPacket->hostSystemContext, isExtendedTeams);
 

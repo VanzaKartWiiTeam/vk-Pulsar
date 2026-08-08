@@ -58,29 +58,38 @@ static SectionLoadHook ratingHook(ApplyRatingPatch);
 // ------------------------------------------------------------------ rank icon
 /*
     Retro Rewind's technique, address found by B_squo, original idea by Zeraora.
-    0x806436a0 is a `li r3, N` inside Pages::Vote::BeforeEntranceAnimations whose value
-    selects the icon drawn next to the player name. Writing the prestige rank there swaps
-    the star for the rank without touching the packet or the BMG tables.
+    See the RATING_RANK_ICON block in RatingConfig.hpp for the whole chain; the short
+    version is that these three `bl OnlineParams::CalcRank` become `li r3, idx`, and that
+    index reaches every console through the SELECT packet's starRank field.
 
-    It is a single global immediate, so it shows the local rank on every entry of that
-    screen -- see RATING_RANK_ICON_LOCAL for why that limit is unavoidable here.
+    0x806436a0 fills combos[0].rank, 0x806436e0 and 0x806436fc are the two branches that
+    fill combos[1].rank for a second local player. Both local players share the licence,
+    so all three get the same index.
 */
-#if RATING_RANK_ICON_LOCAL
+#if RATING_RANK_ICON
 kmRuntimeUse(0x806436a0);
+kmRuntimeUse(0x806436e0);
+kmRuntimeUse(0x806436fc);
 
-static void ApplyLocalRankIcon() {
+static void ApplyRankIcon() {
     RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
     RankId rank = 0;
-    if (rksys != nullptr && rksys->curLicenseId < Config::MAX_LICENSES) {
+    if (rksys != nullptr && rksys->curLicenseId >= 0 && rksys->curLicenseId < (int)Config::MAX_LICENSES) {
         rank = Rank::GetLocal(rksys->curLicenseId);
     }
     if (rank > Config::MAX_RANK) rank = Config::MAX_RANK;
 
-    // li r3, rank. The address has to be the literal the kmRuntimeUse above declared:
-    // the macro pastes it into an identifier, so a named constant will not compile.
-    kmRuntimeWrite32A(0x806436a0, 0x38600000 | ((u32)rank & 0xFFFF));
+    // The index is the rank itself: the pack maps BMG RANK_BMG_BASE + N to the badge glyph
+    // BADGE_GLYPH_BASE + N, and rank 0 falls on the vanilla blank at index 0.
+    const u32 instruction = 0x38600000 | ((u32)rank & 0xFFFF);  // li r3, rank
+
+    // The addresses have to be the literals the kmRuntimeUse above declared: the macro
+    // pastes them into identifiers, so a named constant will not compile.
+    kmRuntimeWrite32A(0x806436a0, instruction);
+    kmRuntimeWrite32A(0x806436e0, instruction);
+    kmRuntimeWrite32A(0x806436fc, instruction);
 }
-static SectionLoadHook localRankIconHook(ApplyLocalRankIcon);
+static SectionLoadHook rankIconHook(ApplyRankIcon);
 #endif
 
 // --------------------------------------------------------------- licence mirror

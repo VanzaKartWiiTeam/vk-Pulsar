@@ -30,45 +30,63 @@ static const float DERANK_MARGIN = 5.0f;  // 500 displayed VR
 static const wchar_t BADGE_GLYPH_BASE = 0xF07C;
 
 /*
-    Puts the prestige rank where Mario Kart Wii draws the star rank, above the player
-    name.  The rank rides SELECTPlayerData::starRank, which vanilla already transmits
-    per console slot, so this costs no extra bytes and covers both local players.
+    Whether a rank drawn inside a text string uses the badge glyph or the plain digit.
+    Covers the Rank button on the WFC page, the race leaderboard, team select and Check
+    Members -- Retro Rewind does the same thing, putting L"" straight into the
+    string it hands to BMG_TEXT.
 
-    The mapping is now known, measured in game:
+    Kept at 0 because the glyph would currently come out blank, and that is a font
+    problem, not a code one.  Measured on the CMAP tables of Scene/UI/Font.szs:
 
-        CalcRank(wheelType, starRank) = wheelType * 4 + starRank
-        rankBMG[playerId]             = RANK_BMG_BASE + CalcRank(...)
+        tt_kart_extension_font.brfnt         f05e-f06d and f074-f088, no ASCII at all
+        kart_kanji_font.brfnt                ASCII 0020-007e and up, nothing in f0xx
+        tt_kart_font_rodan_ntlg_pro_b.brfnt  71 glyphs, uppercase only
 
-    observed as wheelType 0, starRank 3 -> index 3 -> BMG 0x25F1, and the range sits in
-    the same BMG block as the VR and BR unit ids (0x25E4, 0x25E5), which corroborates it.
+    The layouts ask for names that are not font files -- "mii_name" in
+    common_w100_earth_mii_point_wifi.brlyt wants art_font_rodan_ntlg_pro_b, "go" in
+    VRButton.brlyt wants ji_font -- but the coverage settles it without needing the
+    mapping: a Mii name and the word "Rank" both contain lowercase, and kart_kanji_font
+    is the only one of the three that has any.  That is also why the badge is invisible
+    there while the text is not.
 
-    Still 0, and what is missing is no longer knowledge but assets.  The twelve ids
-    RANK_BMG_BASE .. RANK_BMG_BASE + 11 are the vanilla wheel-and-star icons: mapping a
-    prestige rank onto them shows a star picture, not a rank badge.  Turning this on for
-    real wants one BMG message per rank carrying the matching glyph, and then CalcRank
-    returning our own index.  Sending and drawing have to be switched on together.
+    So: add BADGE_GLYPH_BASE+1 .. BADGE_GLYPH_BASE+MAX_RANK to kart_kanji_font.brfnt,
+    copying them from tt_kart_extension_font.brfnt in the same archive, then flip this
+    to 1 and every one of those places shows the badge at once.
 */
-#define RATING_RANK_REPLACES_STARS 0
-static const u32 RANK_BMG_BASE = 0x25EE;
-static const u32 RANK_BMG_VANILLA_COUNT = 12;  // wheelType 0-2 x starRank 0-3
+#define RATING_BADGE_USES_GLYPH 1
 
 /*
-    The cheap route, taken from Retro Rewind: a single `li r3, N` inside
-    Pages::Vote::BeforeEntranceAnimations decides the rank icon index outright. Writing
-    the prestige rank there replaces the star icon with no packet change, no BMG lookup
-    and no new asset -- the game already picks an icon per index.
+    The rank icon drawn next to the player name, the route Retro Rewind uses. Verified by
+    disassembly, the whole chain is:
 
-    The tradeoff is inherent to the technique and RR lives with it: the immediate is one
-    global value, written once per section from the local licence, so every entry drawn by
-    that path shows *your* rank. You see yours; you do not see anyone else's. Per-player
-    ranks need the starRank route above instead.
+      1. SectionParams::combos[i].rank is filled by `bl OnlineParams::CalcRank` at
+         0x806436a0 (player 1) and 0x806436e0 / 0x806436fc (player 2). Overwriting those
+         three instructions with `li r3, idx` puts our own index there instead.
+      2. SetPlayerData(character, kart, course, slot, combos[i].rank) copies it into
+         SELECTPlayerData::starRank, which vanilla already transmits per console slot.
+      3. On every console, OnlineParams::SetRankBMG(playerId, starRank) turns it into
+         rankBMG[playerId] = (starRank < cap) ? RANK_BMG_BASE + starRank : 0,
+         and 0 means no icon. That is what the lobby and Check Members draw.
 
-    The patched address is 0x806436a0; it lives as a literal in RatingHooks.cpp because
-    the kmRuntime macros paste it into an identifier and reject a named constant.
+    So it is *not* a local-only value: the immediate only decides what this console puts
+    into its own packet, and every remote badge arrives in the sender's packet. Everyone
+    sees everyone.
 
-    Set to 0 to go back to the vanilla star icon.
+    SetRankBMG rejects any index at or above a hardcoded 12, the count of vanilla
+    wheel-and-star icons, and writes 0 (no icon) instead. Retro Rewind raises that bound to
+    make room for badges of its own, but VanzaKart does not need to: the pack reuses the
+    twelve existing slots, so rank N is simply index N and MAX_RANK stays well inside.
+
+    Rank N therefore draws BMG (RANK_BMG_BASE + N), 0x25EF for rank 1 up to 0x25F6 for
+    rank 8, and each of those messages has to carry the badge glyph BADGE_GLYPH_BASE + N.
+    Rank 0 keeps index 0 -> 0x25EE, the vanilla blank. That is one and the same convention
+    as RATING_BADGE_USES_GLYPH above: this route draws the glyph as a BMG message the
+    layout places on its own, that one splices it into the name string.
 */
-#define RATING_RANK_ICON_LOCAL 1
+static const u32 RANK_BMG_BASE = 0x25EE;
+static const u32 RANK_BMG_VANILLA_COUNT = 12;  // wheelType 0-2 x starRank 0-3, and the hard cap
+
+#define RATING_RANK_ICON 1
 
 // ------------------------------------------------------------- delta curve
 // B-spline sampled to turn a rating difference into a per-opponent gain or loss.
@@ -120,6 +138,25 @@ static const char* const MULTIPLIER_URL = "http://sitodaking.it:8000/VanzaKart/m
 static const float MULTIPLIER_MIN = 0.0f;
 static const float MULTIPLIER_MAX = 100.0f;
 static const float MULTIPLIER_DEFAULT = 1.0f;
+
+/*
+    ------------------------------------------------------------------ multiplier layers
+    Ported from Retro Rewind, which reads the date off its server clock. VanzaKart has no
+    server clock, so the console RTC (SystemManager) is the source instead: same calendar
+    day worldwide give or take a timezone, and each client computes its own delta anyway,
+    so a disagreement costs fairness rather than desync.
+
+    Weeks are counted from 1 January 2024 and the weekend bonus lands on odd weeks, one
+    Wiimmfi region at a time, rotating every two weeks -- exactly RR's schedule, so the two
+    mods stay in step.
+*/
+static const float EVENT_MULTIPLIER = 2.0f;
+static const float WEEKEND_MULTIPLIER = 1.5f;
+static const u16 WEEK_EPOCH_YEAR = 2024;
+static const u8 WEEKEND_REGIONS[3] = {0x0C, 0x0B, 0x0D};  // vs_12, vs_11, vs_13
+
+// Retro Rewind gives its beta builds a flat bonus; -DBETA is set by compile_and_link.py.
+static const float BETA_MULTIPLIER = 1.25f;
 
 // Server-side rating sync.  The architecture is compiled in, but stays inert until
 // VanzaKart actually serves the endpoint; VKRating.pul remains authoritative.

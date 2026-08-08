@@ -3,6 +3,7 @@
 #include <Network/MatchCommand.hpp>
 #include <PulsarSystem.hpp>
 #include <UI/RoomKick/RoomKickPage.hpp>
+#include <core/rvl/os/OS.hpp>
 
 namespace Pulsar {
 namespace Network {
@@ -38,9 +39,19 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
 
     if(type == DWC::MATCH_COMMAND_RESV_OK && isCustom) {
         const ResvPacket* packet = reinterpret_cast<const ResvPacket*>(data);
-        if(dataSize != (sizeof(ResvPacket) / sizeof(u32)) || packet->pulInfo.roomKey != system->GetInfo().GetKey()
-            || strcmp(packet->pulInfo.modFolderName, system->GetModFolder()) != 0
-            || !system->CheckUserInfo(packet->pulInfo.userInfo)) {
+        const bool badSize = dataSize != (sizeof(ResvPacket) / sizeof(u32));
+        const bool badKey = badSize || packet->pulInfo.roomKey != system->GetInfo().GetKey();
+        const bool badFolder = badSize || strcmp(packet->pulInfo.modFolderName, system->GetModFolder()) != 0;
+        const bool badUser = badSize || !system->CheckUserInfo(packet->pulInfo.userInfo);
+        if(badSize || badKey || badFolder || badUser) {
+
+            //Host-side reason for the "Reservation was denied" the joining console reports.
+            OS::Report("[VK RESV] deny pid=%u roomType=%d size=%u/%u key=0x%08X/0x%08X folder='%s'/'%s'"
+                       " badSize=%d badKey=%d badFolder=%d badUser=%d\n",
+                       pid, roomType, dataSize, (u32)(sizeof(ResvPacket) / sizeof(u32)),
+                       badSize ? 0u : packet->pulInfo.roomKey, system->GetInfo().GetKey(),
+                       badSize ? "?" : packet->pulInfo.modFolderName, system->GetModFolder(),
+                       (int)badSize, (int)badKey, (int)badFolder, (int)badUser);
 
             denyType = DENY_TYPE_BAD_PACK;
             if(roomType == RKNet::ROOMTYPE_VS_REGIONAL) mgr.deniesCount++;
@@ -48,6 +59,8 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
         }
         else if(roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
             if(packet->pulInfo.statusData != mgr.ownStatusData) {
+                OS::Report("[VK RESV] deny pid=%u motivo=OTT status=%d/%d\n",
+                           pid, (int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
                 denyType = DENY_TYPE_OTT;
                 type = DWC::MATCH_COMMAND_RESV_DENY;
             }
@@ -61,6 +74,7 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
                 u32* bannedPIDs = roomKick->GetKickHistory(bannedCount);
                 for (u32 i = 0; i < bannedCount; i++) {
                     if (bannedPIDs[i] == pid) {
+                        OS::Report("[VK RESV] deny pid=%u motivo=KICK (kickedCount=%u)\n", pid, bannedCount);
                         denyType = DENY_TYPE_KICK;
                         type = DWC::MATCH_COMMAND_RESV_DENY;
                         break;
@@ -68,6 +82,11 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
                 }
             }
         }
+
+        //Logged unconditionally: if the joining console reports a denied reservation and this
+        //line says OK, the deny came from vanilla DWC/RKNet, not from any Pulsar check.
+        OS::Report("[VK RESV] esito pid=%u roomType=%d -> %s\n", pid, roomType,
+                   type == DWC::MATCH_COMMAND_RESV_DENY ? "DENY" : "OK");
     }
     mgr.denyType = denyType;
     return type;
@@ -91,6 +110,8 @@ static void HasBeenPulsarDenied(u32 level, const char* string) {
         type = static_cast<DenyType>(error & 0xf);
         if(RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_VS_REGIONAL && type == DENY_TYPE_BAD_PACK) mgr.deniesCount++;
     }
+    //Joining side: which reason the host encoded in the RESV_DENY (0=normale, 1=pack, 2=OTT, 3=kick).
+    OS::Report("[VK RESV] negato dall'host: error=0x%X -> denyType=%d\n", error, (int)type);
     Pulsar::System::sInstance->netMgr.denyType = type;
     DWC::Printf(level, string);
 }

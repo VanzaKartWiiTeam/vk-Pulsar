@@ -83,20 +83,54 @@ wchar_t GetBadgeGlyph(RankId rank) {
     return (wchar_t)(Config::BADGE_GLYPH_BASE + rank);
 }
 
-bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen) {
-    const wchar_t glyph = GetBadgeGlyph(rank);
-    if (glyph == 0 || name == nullptr || dst == nullptr || dstLen < 4) return false;
+u32 FormatLabel(RankId rank, wchar_t* dst, u32 dstLen) {
+    if (dst == nullptr || dstLen < 2) return 0;
 
+#if RATING_BADGE_USES_GLYPH
+    const wchar_t glyph = GetBadgeGlyph(rank);
+    if (glyph != 0) {
+        dst[0] = glyph;
+        dst[1] = L'\0';
+        return 1;
+    }
+#endif
+    dst[0] = (wchar_t)(L'0' + ((rank <= 9) ? rank : 9));
+    dst[1] = L'\0';
+    return 1;
+}
+
+/*
+    Two forms, picked by RATING_BADGE_USES_GLYPH: "<glyph> Name" when the font carries
+    the badge glyphs, "[N] Name" otherwise.  Both are a fixed-width prefix followed by
+    the name, so the copy below is shared.
+*/
+bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen) {
+    if (rank == 0 || rank > Config::MAX_RANK || name == nullptr || dst == nullptr) return false;
+
+#if RATING_BADGE_USES_GLYPH
+    const wchar_t glyph = GetBadgeGlyph(rank);
+    if (glyph == 0) return false;
+    const u32 prefixLen = 2;
+    if (dstLen < prefixLen + 2) return false;
     dst[0] = glyph;
     dst[1] = L' ';
+#else
+    // Ranks past 9 would need a second digit; MAX_RANK is 8, so one is enough.
+    const u32 prefixLen = 4;
+    if (dstLen < prefixLen + 2) return false;
+    dst[0] = L'[';
+    dst[1] = (wchar_t)(L'0' + rank);
+    dst[2] = L']';
+    dst[3] = L' ';
+#endif
 
     u32 i = 0;
-    const u32 maxName = dstLen - 3;  // glyph, space, terminator
+    const u32 maxName = dstLen - prefixLen - 1;
     while (i < maxName && name[i] != L'\0') {
-        dst[i + 2] = name[i];
+        dst[i + prefixLen] = name[i];
         ++i;
     }
-    dst[i + 2] = L'\0';
+    dst[i + prefixLen] = L'\0';
     return true;
 }
 

@@ -252,7 +252,7 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             }
         }
     }
-    Network::ReportU32("wl:mkw_select_course", self.toSendPacket.pulWinningTrack);  // ← aggiungi un report per il vincitore della votazione del corso
+    Network::ReportU32("wl:mkw_select_course", self.toSendPacket.pulWinningTrack);
 }
 kmCall(0x80661490, ExpSELECTHandler::DecideTrack);
 
@@ -351,7 +351,7 @@ static void DecideCC(ExpSELECTHandler& handler) {
         else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
         handler.toSendPacket.engineClass = ccClass;
     }
-    Network::ReportU32("wl:mkw_select_cc", handler.toSendPacket.engineClass);  // ← aggiungi un report per la classe di CC decisa
+    Network::ReportU32("wl:mkw_select_cc", handler.toSendPacket.engineClass);
 
 }
 kmCall(0x80661404, DecideCC);

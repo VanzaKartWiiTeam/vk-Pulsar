@@ -9,6 +9,8 @@
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
 
+extern "C" void OSReport(const char* format, ...);
+
 namespace Pulsar {
 namespace PointRating {
 
@@ -20,6 +22,27 @@ u8 remoteDecimalVR[12][2];
 float lastRaceDeltas[12];
 
 namespace Manager {
+
+/*
+    Il rating va applicato una volta sola per gara.
+
+    RacedataScenario::UpdatePoints (0x8052e950) nel gioco vanilla e' idempotente
+    (score = previousScore + points), quindi a fine gara viene chiamata due volte senza che
+    nulla se ne accorga: una dal punto agganciato in Race/CommonRace.cpp (0x8085c878) e una da
+    WWLeaderboardFillRows (0x8085ce8c), che aggiorna i punteggi prima di riempire le righe
+    della leaderboard. Il rating pero' fa next = old + delta e lo salva: alla seconda passata
+    rilegge il valore gia' aggiornato e ci somma di nuovo lo stesso delta, raddoppiando ogni
+    guadagno e ogni perdita (5000 -> 5022 -> 5044). Il numero mostrato restava giusto perche'
+    lastRaceDeltas veniva riscritto con lo stesso valore a ogni passata.
+
+    Meglio un guard qui che togliere una delle due chiamate: entrambe servono per la parte
+    vanilla dei punti, e cosi' il conto regge comunque se in futuro qualcuno ne aggiunge una
+    terza.
+*/
+static bool sRatingCommitted = false;
+
+static void ResetRatingCommit() { sRatingCommitted = false; }
+static RaceLoadHook ResetRatingCommitOnRaceLoad(ResetRatingCommit);
 
 static bool IsBattleMode(GameMode mode) {
     return mode == MODE_BATTLE || mode == MODE_PUBLIC_BATTLE || mode == MODE_PRIVATE_BATTLE;
@@ -149,6 +172,13 @@ void UpdatePoints(RacedataScenario* scenario) {
 
         AwardRacePoints(*scenario, i, snapshots[i].position, raceInfo->players[i]->battleScore, isBattle);
     }
+
+    if (sRatingCommitted) {
+        OSReport("[VK RATING] UpdatePoints called again for an already committed race: ignored\n");
+        return;
+    }
+    sRatingCommitted = true;
+    OSReport("[VK RATING] committing the rating for this race\n");
 
     float deltas[12];
     Calculator::ComputeDeltas(snapshots, ctx, deltas);
