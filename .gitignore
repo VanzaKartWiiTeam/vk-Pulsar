@@ -95,3 +95,7 @@ KamekLinker/bin/Release/net8.0/Kamek.pdb
 KamekLinker/bin/Release/net8.0/Kamek.runtimeconfig.json
 PulsarEngine/Extra/DebugMenuDriver.cpp.disabled
 KamekLinker/Kamek.exe
+
+# AntiCheat: kept out of the public tree on purpose
+PulsarEngine/AntiCheat.cpp
+PulsarEngine/AntiCheat.hpp
