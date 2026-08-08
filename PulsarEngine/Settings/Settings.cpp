@@ -2,6 +2,7 @@
 #include <PulsarSystem.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 #include <IO/IO.hpp>
+#include <core/rvl/os/OS.hpp>
 
 namespace Pulsar {
 namespace Settings {
@@ -26,7 +27,9 @@ int Mgr::GetSettingsBinSize(u32 trackCount) const {
 
 void Mgr::Save() {
     IO* io = IO::sInstance;
-    io->OpenFile(this->filePath, FILE_MODE_WRITE);
+    if(io == nullptr || this->rawBin == nullptr) return;
+    if(!io->OpenFile(this->filePath, FILE_MODE_WRITE)
+        && !io->CreateAndOpen(this->filePath, FILE_MODE_WRITE)) return;
     io->Overwrite(this->rawBin->header.fileSize, this->rawBin);
     io->Close();
 };
@@ -46,7 +49,9 @@ void Mgr::Init(const u16* totalTrophyCount, const char* path/*, const char *curM
     Binary* buffer = nullptr;
     bool ret = io->OpenFile(this->filePath, FILE_MODE_READ_WRITE);
     if(!ret) {
-        io->CreateAndOpen(this->filePath, FILE_MODE_READ_WRITE);
+        if(!io->CreateAndOpen(this->filePath, FILE_MODE_READ_WRITE)) {
+            OS::Report("[Pulsar LOG] Settings::Init: could not create %s, settings will not be saved\n", this->filePath);
+        }
     }
     else {
         alignas(0x20) BinaryHeader header;

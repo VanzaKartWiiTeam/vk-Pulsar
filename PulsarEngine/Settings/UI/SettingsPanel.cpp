@@ -260,16 +260,10 @@ void SettingsPanel::LoadPrevMenuAndSaveSettings(PushButton& button) {
     //else if(this->prevPageId == PAGE_SINGLE_PLAYER_MENU) ExpSinglePlayer::topSettingsPage = static_cast<PulPageId>(this->pageId);
     this->SaveSettings(true);
 
-    //La lingua decide quali archivi vengono caricati (UIAssets_I, e i percorsi /Iace e /Icene
-    //che ApplyArchiveLanguage ottiene patchando una lettera). Gli archivi si caricano solo
-    //all'ingresso della scena, quindi senza reinizializzarla il cambio si vedrebbe soltanto al
-    //riavvio. Stessa sezione, quindi stesso sceneId: e' il caso sicuro per un reinit.
     const u8 languageAfter = Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_LANGUAGE, SCROLLER_LANGUAGE);
     if(languageAfter != languageBefore) {
         Languages::ApplyArchiveLanguage();
         SectionMgr* sectionMgr = SectionMgr::sInstance;
-        //Assegnazione diretta invece di SetNextSection: quella applica solo se la priorita'
-        //della nuova sezione e' maggiore, e qui la sezione e' la stessa.
         sectionMgr->nextSectionId = sectionMgr->curSection->sectionId;
         sectionMgr->RequestSceneReinit(0, 0xFF);
     }

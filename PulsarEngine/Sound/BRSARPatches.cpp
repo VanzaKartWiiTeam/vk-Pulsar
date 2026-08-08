@@ -4,6 +4,8 @@
 #include <core/nw4r/snd/StrmSound.hpp>
 #include <core/nw4r/snd/SoundStartable.hpp>
 #include <core/nw4r/snd/DVDSoundArchive.hpp>
+#include <Settings/Settings.hpp>
+#include <Settings/SettingsParam.hpp>
 
 namespace Pulsar {
 namespace Sound {
@@ -49,7 +51,9 @@ kmCall(0x800a66f4, LoadBRSTMVolumeAndFixTrackCount);
 
 //Automatic BRSAR patching from Elias_
 void BRSAREntrySizePatch(snd::DVDSoundArchive::DVDFileStream* stream, s32 offset, u32 origin) {
-    stream->size = 0x7FFFFFFF;
+    if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_BRSAR) == MENUSETTING_BRSAR_ENABLED) {
+        stream->size = 0x7FFFFFFF;
+    }
     stream->Seek(offset, origin);
 }
 kmCall(0x80091354, BRSAREntrySizePatch);

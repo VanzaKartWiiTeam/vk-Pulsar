@@ -50,6 +50,7 @@ enum MenuSettings {
     SETTINGMENU_RADIO_LAYOUT = 1,
     SETTINGMENU_RADIO_MUSIC = 2,
     SETTINGMENU_RADIO_INPUTVIEWER = 3,
+    SETTINGMENU_RADIO_BRSAR = 4,
     SETTINGMENU_SCROLL_BOOT = 0 + 6,
     SETTINGMENU_SCROLL_HUDCOLOR = 1 + 6
 };
@@ -61,7 +62,8 @@ enum RaceSettings {
     SETTINGRACE_RADIO_FPS,
     SETTINGRACE_RADIO_SOM,
 
-    SETTINGRACE_SCROLL_SOM = 0 + 6
+    SETTINGRACE_SCROLL_SOM = 0 + 6,
+    SETTINGRACE_SCROLL_ITEMMODE = 1 + 6
 };
 
 enum HostSettings {
@@ -70,7 +72,10 @@ enum HostSettings {
     SETTINGHOST_RADIO_CC = 2,
     SETTINGHOST_ALLOW_MIIHEADS = 3,
     SETTINGHOST_RADIO_THUNDERCLOUD = 4,
-    SETTINGHOST_RADIO_RANKED = 5, //last free radio slot: index 6 is taken by the scroller
+    //No longer read: friend rooms never count towards VR, which is now only earned in the
+    //worldwide/regional rooms. The slot keeps its index so SETTINGHOST_SCROLL_GP_RACES does not
+    //move; drop the row from the pack's settings definition to make it disappear from the menu.
+    SETTINGHOST_RADIO_RANKED_UNUSED = 5,
     SETTINGHOST_SCROLL_GP_RACES = 0 + 6
 };
 
@@ -111,6 +116,11 @@ enum MenuSettingMusic {
 enum MenuSettingInputViewer {
     MENUSETTING_INPUTVIEWER_DISABLED = 0x0,
     MENUSETTING_INPUTVIEWER_ENABLED = 0x1,
+};
+
+enum MenuSettingBrsar {
+    MENUSETTING_BRSAR_ENABLED = 0x0,
+    MENUSETTING_BRSAR_DISABLED = 0x1
 };
 
 enum MenuSettingBoot {
@@ -155,6 +165,15 @@ enum RaceSettingSOMDigits {
     HOSTSETTING_SOM_DIGITS_3,
 };
 
+//Race mode for offline VS and friend rooms. Replaces the two froom mode buttons that used
+//to be the only way to start an item rain room. Public WW rooms ignore it: there the mode
+//comes from the region id.
+enum RaceSettingItemMode {
+    RACESETTING_ITEMMODE_NORMAL,
+    RACESETTING_ITEMMODE_ITEMRAIN,
+    RACESETTING_ITEMMODE_COUNTDOWN
+};
+
 //HOST SETTINGS
 enum HostSettingHAW {
     HOSTSETTING_HOSTWINS_DISABLED,
@@ -181,12 +200,6 @@ enum ThunderCloud {
 enum HostSettingMOGI {
     HOSTSETTING_MOGI_DISABLED,
     HOSTSETTING_MOGI_ENABLED
-};
-
-// When enabled the friend room counts towards VR, which is what PULSAR_VR carries.
-enum HostSettingRanked {
-    HOSTSETTING_RANKED_DISABLED,
-    HOSTSETTING_RANKED_ENABLED
 };
 
 enum HostSettingGPRACES {
@@ -290,9 +303,6 @@ enum Language {
 };
 
 enum {
-    //Come tutti gli altri scroller: +6 (Params::scrollerSettingOffset). Senza, si legge
-    //il byte del radio 0 invece del valore dello scroller, che SettingsPanel salva a 0+6,
-    //quindi IsItalian() era sempre falsa e i percorsi /Iace//Icene non venivano mai attivati.
     SCROLLER_LANGUAGE = 0 + 6
 };
 

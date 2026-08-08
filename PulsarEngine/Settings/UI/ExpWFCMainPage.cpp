@@ -75,26 +75,27 @@ void ExpWFCMain::BeforeControlUpdate() {
     this->playerCount.SetTextBoxMessage("go", BMG_PLAYER_COUNT, &info);
 
     /*
-        The rank of the active licence, drawn with the same badge glyph as the
-        leaderboard and the in-race name balloon. BMG_TEXT takes a raw string, so this
-        needs no new BMG entry; giving it a proper message would let it carry a label
-        the way the player count does.
+        The rank of the active licence. Rank::FormatLabel decides between the badge glyph
+        and the plain digit, so this button and the name prefixes elsewhere always agree;
+        see RATING_BADGE_USES_GLYPH for what the glyph form needs from the font. Unranked
+        reads 0 instead of being blank, so the button never looks broken.
+
+        Composed by hand rather than with swprintf: the label is one wide character and
+        this toolchain's swprintf has no dependable way to splice one in.
     */
     const RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
     const PointRating::RankId rank =
         (rksys != nullptr && rksys->curLicenseId < 4) ? PointRating::Rank::GetLocal(rksys->curLicenseId) : 0;
 
-    wchar_t rankText[8];
-    const wchar_t glyph = PointRating::Rank::GetBadgeGlyph(rank);
-    if (glyph != 0) {
-        rankText[0] = glyph;
-        rankText[1] = L' ';
-        rankText[2] = (wchar_t)(L'0' + rank);
-        rankText[3] = L'\0';
-    } else {
-        rankText[0] = L'-';  // unranked
-        rankText[1] = L'\0';
+    static const wchar_t rankPrefix[] = L"Rank: ";
+    wchar_t rankText[16];
+    u32 len = 0;
+    while (rankPrefix[len] != L'\0') {
+        rankText[len] = rankPrefix[len];
+        ++len;
     }
+    len += PointRating::Rank::FormatLabel(rank, &rankText[len], 16 - len);
+    rankText[len] = L'\0';
 
     // Guarded: writing to a pane the loaded layout does not have takes the whole page
     // down with a null dereference, and that is not worth risking for a label.
@@ -238,6 +239,12 @@ static void SetTextBoxMessageSafe(LayoutUIControl& control, const char* textBoxN
     }
 }
 
+static void SetButtonLabel(LayoutUIControl& button, u32 bmgId) {
+    SetTextBoxMessageSafe(button, "text", bmgId);
+    SetTextBoxMessageSafe(button, "text_light_01", bmgId);
+    SetTextBoxMessageSafe(button, "text_light_02", bmgId);
+}
+
 void ExpWFCModeSel::SetMenuTextAndRatings() {
     Pages::GlobeSearch* search = SectionMgr::sInstance->curSection->Get<Pages::GlobeSearch>();
     const u32 searchType = search != nullptr ? search->searchType : 0;
@@ -251,26 +258,14 @@ void ExpWFCModeSel::SetMenuTextAndRatings() {
         SetTextBoxMessageSafe(this->battleButton, "text_light_02", BMG_BATTLE_RESTORE);
     } else {
         if (this->submenuState == STATE_MAIN) {
-            SetTextBoxMessageSafe(this->vsButton, "text", BMG_VS_WW_MENU); // VS WW
-            SetTextBoxMessageSafe(this->vsButton, "text_light_01", BMG_VS_WW_MENU);
-            SetTextBoxMessageSafe(this->vsButton, "text_light_02", BMG_VS_WW_MENU);
-            SetTextBoxMessageSafe(this->battleButton, "text", BMG_OTHER_VS_MENU); // Other VS
-            SetTextBoxMessageSafe(this->battleButton, "text_light_01", BMG_OTHER_VS_MENU);
-            SetTextBoxMessageSafe(this->battleButton, "text_light_02", BMG_OTHER_VS_MENU);
+            SetButtonLabel(this->vsButton, BMG_WWMENU_MAIN_VS); // VS Worldwide
+            SetButtonLabel(this->battleButton, BMG_WWMENU_MAIN_OTHER); // Other VS
         } else if (this->submenuState == STATE_VS_WW) {
-            SetTextBoxMessageSafe(this->vsButton, "text", BMG_VANZA_VS); // Vanza VS
-            SetTextBoxMessageSafe(this->vsButton, "text_light_01", BMG_VANZA_VS);
-            SetTextBoxMessageSafe(this->vsButton, "text_light_02", BMG_VANZA_VS);
-            SetTextBoxMessageSafe(this->battleButton, "text", BMG_200CC_VANZA_VS); // 200cc Vanza VS
-            SetTextBoxMessageSafe(this->battleButton, "text_light_01", BMG_200CC_VANZA_VS);
-            SetTextBoxMessageSafe(this->battleButton, "text_light_02", BMG_200CC_VANZA_VS);
+            SetButtonLabel(this->vsButton, BMG_WWMENU_VS_VANZA); // Vanza VS
+            SetButtonLabel(this->battleButton, BMG_WWMENU_VS_200CC); // 200cc Vanza VS
         } else if (this->submenuState == STATE_OTHER_VS) {
-            SetTextBoxMessageSafe(this->vsButton, "text", BMG_OTT_BUTTON); // OnlineTT
-            SetTextBoxMessageSafe(this->vsButton, "text_light_01", BMG_OTT_BUTTON);
-            SetTextBoxMessageSafe(this->vsButton, "text_light_02", BMG_OTT_BUTTON);
-            SetTextBoxMessageSafe(this->battleButton, "text", BMG_ITEMRAIN_WW_START_MESSAGE); // Item Rain WW
-            SetTextBoxMessageSafe(this->battleButton, "text_light_01", BMG_ITEMRAIN_WW_START_MESSAGE);
-            SetTextBoxMessageSafe(this->battleButton, "text_light_02", BMG_ITEMRAIN_WW_START_MESSAGE);
+            SetButtonLabel(this->vsButton, BMG_WWMENU_OTHER_OTT); // Online TT
+            SetButtonLabel(this->battleButton, BMG_WWMENU_OTHER_ITEMRAIN); // Item Rain WW
         }
     }
 }
@@ -313,21 +308,21 @@ void ExpWFCModeSel::OnModeButtonSelect(PushButton& modeButton, u32 hudSlotId) {
     } else {
         if (this->submenuState == STATE_MAIN) {
             if (modeButton.buttonId == 1) {
-                this->bottomText.SetMessage(BMG_VS_WW_MENU);
+                this->bottomText.SetMessage(BMG_WWMENU_MAIN_VS_DESC);
             } else {
-                this->bottomText.SetMessage(BMG_OTHER_VS_MENU);
+                this->bottomText.SetMessage(BMG_WWMENU_MAIN_OTHER_DESC);
             }
         } else if (this->submenuState == STATE_VS_WW) {
             if (modeButton.buttonId == 1) {
-                this->bottomText.SetMessage(0x10da);
+                this->bottomText.SetMessage(BMG_WWMENU_VS_VANZA_DESC);
             } else {
-                this->bottomText.SetMessage(BMG_200CC_VANZA_VS_DESC);
+                this->bottomText.SetMessage(BMG_WWMENU_VS_200CC_DESC);
             }
         } else if (this->submenuState == STATE_OTHER_VS) {
             if (modeButton.buttonId == 1) {
-                this->bottomText.SetMessage(BMG_OTT_WW_BOTTOM);
+                this->bottomText.SetMessage(BMG_WWMENU_OTHER_OTT_DESC);
             } else {
-                this->bottomText.SetMessage(BMG_ITEMRAIN_WW_START_MESSAGE);
+                this->bottomText.SetMessage(BMG_WWMENU_OTHER_ITEMRAIN_DESC);
             }
         }
     }
@@ -368,7 +363,7 @@ void ExpWFCModeSel::OnModeButtonClick(PushButton& modeButton, u32 hudSlotId) {
         }
     } else if (this->submenuState == STATE_OTHER_VS) {
         if (clickedId == 1) {
-            Network::REGIONID = 0xCD;
+            Network::REGIONID = 0x69;
             System::sInstance->netMgr.ownStatusData = true;
             modeButton.buttonId = 1;
             WFCModeSelect::OnModeButtonClick(modeButton, hudSlotId);
