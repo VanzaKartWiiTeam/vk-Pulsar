@@ -72,12 +72,6 @@ void CtrlRaceInputViewer::Init() {
         }
     }
     
-    // ═══════════════════════════════════════════════════════════
-    // 🗑️ NASCONDI BRAKE DRIFT BUTTON (da Retro Rewind)
-    // ═══════════════════════════════════════════════════════════
-    // Il brake drift non esiste in vanilla ma i pane potrebbero
-    // essere presenti nel layout - li nascondiamo esplicitamente
-    
     nw4r::lyt::Pane* bdOff = this->layout.GetPaneByName("TriggerBDOff");
     if (bdOff) bdOff->flag &= ~1;
     

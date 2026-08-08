@@ -33,7 +33,7 @@ public:
     int GetEffectiveTrackCount() const { return (definedCTsCupCount + HasRegs() * 8) * 4; } //settings and froom msgs
     void ToggleCTs(bool enabled);
     static void SetLayout();
-    void GetExpertPath(char* dest, PulsarId id, TTMode mode) const;
+    void GetExpertPath(char* dest, PulsarId id, TTMode mode, u8 variantIdx = 0) const;
 
     // Ghosts
     int GetCRC32(PulsarId id) const;

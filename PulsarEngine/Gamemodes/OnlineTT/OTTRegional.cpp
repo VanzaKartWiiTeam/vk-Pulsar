@@ -22,7 +22,7 @@ ut::Color GetFriendColor(u32 friendIdx) {
     const RKNet::Friend* friendData = &RKNet::Controller::sInstance->friends[friendIdx];
     const u8 friendRegion = friendData->statusData.regionId;
 
-    const bool isSpecialRegion = (friendRegion == 0xCD || friendRegion == 0x70 || friendRegion == 0x71);
+    const bool isSpecialRegion = (friendRegion == 0x69 || friendRegion == 0x70 || friendRegion == 0x71);
 
     switch (type) {
         case RKNet::SEARCH_TYPE_VS_WW:
@@ -224,7 +224,7 @@ void GlobeMsgColor(Pages::Globe::MessageWindow& msg, u32 bmgId, Text::Info* info
     const u8 friendRegion = friendData->statusData.regionId;
 
     // Set appropriate BMG based on region
-    if (friendRegion == 0xCD) {
+    if (friendRegion == 0x69) {
         bmgId = UI::BMG_OTT_PLAYING;
     } else if (friendRegion == 0x70) {
         bmgId = UI::BMG_200_PLAYING;
@@ -243,9 +243,9 @@ void GlobeMsgColor(Pages::Globe::MessageWindow& msg, u32 bmgId, Text::Info* info
 kmCall(0x805e504c, GlobeMsgColor);
 
 void GlobeSearchTopMsg(CtrlMenuPageTitleText& title, u32 bmgId, Text::Info* info) {
-    if (REGIONID == 0xCC)
+    if (REGIONID == 0x68)
         bmgId = UI::BMG_TITLE_TEXT_RT;
-    else if (REGIONID == 0xCD)
+    else if (REGIONID == 0x69)
         bmgId = UI::BMG_OTT_TITLE_TEXT;
     else if (REGIONID == 0x70)
         bmgId = UI::BMG_200_TITLE_TEXT;

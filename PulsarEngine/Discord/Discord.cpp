@@ -6,6 +6,7 @@
 #include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <core/rvl/DWC/DWCAccount.hpp>
+#include <Network/Rating/PlayerRating.hpp>
 
 namespace Discord {
 
@@ -17,6 +18,11 @@ static CharacterId charID = CHARACTER_NONE;
 
 static char smallImageKey[32] = "";
 static char smallImageText[32] = "";
+
+// These two feed pointers straight into SetDiscordPresence, so they cannot live
+// in an inner scope: the buffer has to outlive the block that fills it.
+static char fcText[32] = "";
+static char detailsBuffer[0x100] = "";
 
 // 27/03/26 - ADDED THIS DUE TO 
 // FINDING A BUG WITH THE CHARACTER ICONS
@@ -85,8 +91,8 @@ void DiscordRichPresence(Section* _this) {
 
     if (rksysMgr && rksysMgr->curLicenseId >= 0) {
         RKSYS::LicenseMgr& license = rksysMgr->licenses[rksysMgr->curLicenseId];
-        //vr = Pulsar::PointRating::GetUserVR(rksysMgr->curLicenseId);
-        //br = Pulsar::PointRating::GetUserBR(rksysMgr->curLicenseId);
+        vr = Pulsar::PointRating::GetUserVR(rksysMgr->curLicenseId);
+        br = Pulsar::PointRating::GetUserBR(rksysMgr->curLicenseId);
         fc = DWC::CreateFriendKey(&license.dwcAccUserData);
     }
 
@@ -97,7 +103,6 @@ void DiscordRichPresence(Section* _this) {
             fc /= 10000;
         }
 
-        char fcText[32];
         snprintf(fcText, 32, "Friend Code: %04u-%04u-%04u", fcParts[2], fcParts[1], fcParts[0]);
         largeImageText = fcText;
     }
@@ -414,11 +419,10 @@ void DiscordRichPresence(Section* _this) {
     }
 
     if (_this->sectionId >= SECTION_P1_WIFI && _this->sectionId <= SECTION_P2_WIFI_FRIEND_COIN) {
-        char newDetails[0x100];
         int vrScaled = (int)(vr * 100.0f + 0.5f);
         int brScaled = (int)(br * 100.0f + 0.5f);
-        snprintf(newDetails, 0x100, "%s (VR: %d BR: %d)", details, vrScaled, brScaled);
-        details = newDetails;
+        snprintf(detailsBuffer, 0x100, "%s (VR: %d BR: %d)", details, vrScaled, brScaled);
+        details = detailsBuffer;
     }
 
     Dolphin::SetDiscordPresence(

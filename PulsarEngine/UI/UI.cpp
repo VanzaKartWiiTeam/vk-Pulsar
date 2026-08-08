@@ -447,6 +447,10 @@ void UnbindRLMC(lyt::Material* mat) {
                 if(animInfo->kind == lyt::res::ANIMATIONTYPE_RLMC) mat->UnbindAnimation(anim);
             }
         }
+        //UnbindAnimation erases the link from the list, so once the list is empty the node ++it
+        //would advance from is unlinked and its next is null: ++it then yields node 0 and the
+        //`it->disable` read at the top faults on 0x0+0xE. rr-pulsar has this same guard.
+        if(mat->animLinkList.GetSize() == 0) break;
     }
 }
 

@@ -2,6 +2,7 @@
 #include <Settings/Settings.hpp>
 #include <IO/IO.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
+#include <core/rvl/os/OS.hpp>
 
 namespace Pulsar {
 namespace Ghosts {
@@ -31,14 +32,14 @@ Cornerstone function; Creates the folders if they have been deleted somehow,
 reads them, fetches the leaderboard, creates GhostDatas based on the rkgs, sets the expert time
 */
 
-void Mgr::Init(PulsarId id) {
+void Mgr::Init(PulsarId id, u8 variantIdx) {
     this->Reset();
     this->pulsarId = id;
+    this->variantIdx = variantIdx;
     IO* io = IO::sInstance;
     const System* system = System::sInstance;
     const CupsConfig* cupsConfig = CupsConfig::sInstance;
     const TTMode ttMode = system->ttMode;
-    const u8 variantIdx = cupsConfig->GetCurVariantIdx();
 
     if (variantIdx > 0) {
         char parentPath[IOS::ipcMaxPath];
@@ -64,7 +65,7 @@ void Mgr::Init(PulsarId id) {
     s32 expertCRC32 = -1;
     DVD::FileInfo info;
     char expertName[IOS::ipcMaxPath];
-    cupsConfig->GetExpertPath(expertName, id, ttMode);
+    cupsConfig->GetExpertPath(expertName, id, ttMode, variantIdx);
     this->expertEntryNum = DVD::ConvertPathToEntryNum(expertName);
     if(this->expertEntryNum >= 0) {
 
@@ -127,6 +128,7 @@ void Mgr::Init(PulsarId id) {
 void Mgr::Reset() {
     IO::sInstance->CloseFolder();
     this->pulsarId = PULSARID_NONE;
+    this->variantIdx = 0;
     this->lastUsedSlot = 0;
     this->expertGhost.isActive = false;
     mainGhostIndex = 0xFF;
@@ -144,7 +146,7 @@ void Mgr::Reset() {
 
 void Mgr::SaveLeaderboard() {
     char folderPath[IOS::ipcMaxPath];
-    CupsConfig::sInstance->GetTrackGhostFolder(folderPath, this->pulsarId, CupsConfig::sInstance->GetCurVariantIdx());
+    CupsConfig::sInstance->GetTrackGhostFolder(folderPath, this->pulsarId, this->variantIdx);
     this->leaderboard.Save(folderPath);
 }
 /*
@@ -263,31 +265,42 @@ void Mgr::CreateAndSaveFiles(Mgr* self) {
     const u32 minutes = rkg.header.minutes;
     const u32 seconds = rkg.header.seconds;
     u32 milliseconds = rkg.header.milliseconds;
-    const char* format = "%s/%01dm%02ds%03d.rkg";
-    const char* folder = io->GetFolderName();
+    //Rebuild the folder instead of asking the IO for the one it currently has bound: any
+    //CreateFolder/ReadFolder/CloseFolder done meanwhile (the RKSYS redirection used to do
+    //exactly that on console) rebinds it, and the ghost would be written elsewhere.
+    const TTMode ttMode = System::sInstance->ttMode;
+    const char* format = "%s/%s/%01dm%02ds%03d.rkg";
     char letter = '?';
     if(repeatCount > 1) {
-        format = "%s/%01dm%02ds%02d%c.rkg";
+        format = "%s/%s/%01dm%02ds%02d%c.rkg";
         letter += repeatCount;
         milliseconds = milliseconds / 10;
     }
-    snprintf(path, IOS::ipcMaxPath, format, folder, minutes, seconds, milliseconds, letter);
+    snprintf(path, IOS::ipcMaxPath, format, folderPath, System::ttModeFolders[ttMode], minutes, seconds, milliseconds, letter);
 
-    io->CreateAndOpen(path, FILE_MODE_WRITE);
-    io->Overwrite(GetRKGLength(rkg), &rkg);
-    io->Close();
+    if(io->CreateAndOpen(path, FILE_MODE_WRITE)) {
+        io->Overwrite(GetRKGLength(rkg), &rkg);
+        io->Close();
+    }
+    else OS::Report("[Pulsar LOG] CreateAndSaveFiles: could not create %s\n", path);
 
     self->SaveLeaderboard();
     Settings::Mgr::sInstance->Save(); //trophies
 
     char prevGhostFile[IOS::ipcMaxPath];
-    u32 prevFileIndex = self->files[self->mainGhostIndex].padding;
-    if(prevFileIndex != expertFileIdx) io->GetFolderFilePath(prevGhostFile, prevFileIndex);
+    prevGhostFile[0] = '\0';
+    //mainGhostIndex is 0xFF when no ghost was selected, so files[] must not be indexed with it
+    u32 prevFileIndex = expertFileIdx;
+    if(self->mainGhostIndex != 0xFF && self->mainGhostIndex < self->rkgCount) {
+        prevFileIndex = self->files[self->mainGhostIndex].padding;
+        if(prevFileIndex != expertFileIdx) io->GetFolderFilePath(prevGhostFile, prevFileIndex);
+    }
 
-    self->Init(CupsConfig::sInstance->GetWinning());
+    const u8 racedVariantIdx = self->variantIdx;
+    self->Init(CupsConfig::sInstance->GetWinning(), racedVariantIdx);
 
     if(prevFileIndex == expertFileIdx) self->mainGhostIndex = 0;
-    else for(int i = 1; i < self->rkgCount; ++i) {
+    else if(prevGhostFile[0] != '\0') for(int i = 1; i < self->rkgCount; ++i) {
         char curFileName[IOS::ipcMaxPath];
         io->GetFolderFilePath(curFileName, self->files[i].padding);
         if(strcmp(prevGhostFile, curFileName) == 0) {
@@ -303,7 +316,7 @@ void Mgr::CreateAndSaveFiles(Mgr* self) {
 void Mgr::InsertCustomGroupToList(GhostList* list, CourseId) { //check id here
     Mgr* self = Mgr::sInstance;
     const CupsConfig* cupsConfig = CupsConfig::sInstance;
-    self->Init(cupsConfig->GetWinning());
+    self->Init(cupsConfig->GetWinning(), cupsConfig->GetCurVariantIdx());
     u32 index = 0;
     const u32 rkgCount = IO::sInstance->GetFileCount();
     for(int i = 0; i < rkgCount; ++i) {

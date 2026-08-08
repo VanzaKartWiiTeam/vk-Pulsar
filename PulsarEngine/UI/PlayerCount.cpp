@@ -160,7 +160,7 @@ void sbCallback(ServerBrowser sb, SBCallbackReason reason, SBServer server, void
                     VK_localVS += numplayers;
                 } else if (regionID == 0x70) {
                     VK_local200cc += numplayers;
-                } else if (regionID == 0xCD) {
+                } else if (regionID == 0x69) {
                     VK_localOTT += numplayers;
                 } else if (regionID == 0x71) {
                     VK_localIR += numplayers;

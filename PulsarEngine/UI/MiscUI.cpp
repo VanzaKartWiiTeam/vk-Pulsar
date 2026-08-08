@@ -1,9 +1,11 @@
 #include <kamek.hpp>
+#include <runtimeWrite.hpp>
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceWifi.hpp>
 #include <MarioKartWii/UI/Page/Other/Title.hpp>
 #include <MarioKartWii/UI/Page/Other/Message.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <MarioKartWii/GlobalFunctions.hpp>
+#include <MarioKartWii/3D/GlobeMgr.hpp>
 #include <PulsarSystem.hpp>
 #include <AutoTrackSelect/ChooseNextTrack.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
@@ -118,9 +120,9 @@ SectionParams& FavouriteCombo(SectionParams& params) {
 
         const s32 charWeight = GetCharacterWeightClass(favChar);
         const s32 kartWeight = GetKartWeightClass(favKart);
-        OSReport("[VK FAV] licenza=%d favChar=0x%X favKart=0x%X charWeight=%d kartWeight=%d %s\n",
+        OSReport("[VK FAV] license=%d favChar=0x%X favKart=0x%X charWeight=%d kartWeight=%d %s\n",
                  (int)curLicense, (int)favChar, (int)favKart, (int)charWeight, (int)kartWeight,
-                 ((u32)favChar >= 0x18 && (u32)favChar <= 0x29) ? "<- e' un Mii" : "");
+                 ((u32)favChar >= 0x18 && (u32)favChar <= 0x29) ? "<- is a Mii" : "");
         if (kartWeight != -1) {
             if (charWeight == -1 || charWeight != kartWeight) {
                 switch (kartWeight) {
@@ -144,6 +146,15 @@ SectionParams& FavouriteCombo(SectionParams& params) {
     return params;
 }
 kmBranch(0x805e4228, FavouriteCombo);
+
+/*
+    The globe Mii probe used to live here (kmCall on the four GlobeMgr::SetMii and the four
+    DisplayMii call sites). Removed while the American build is being brought up: those eight
+    addresses were read off the PAL StaticR and reach E/J/K only through the range shifts in
+    versions.txt, so they are exactly the kind of patch that can land on the wrong instruction
+    outside PAL. Put it back once RMCE boots, and only after checking the translated addresses
+    really are bl instructions in the E module.
+*/
 
 u8 ModifyCheckRankings() {
     register Pages::RaceMenu* ttEnd;

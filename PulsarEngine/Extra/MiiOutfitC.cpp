@@ -132,6 +132,54 @@ static int GetCharacterIdForButtonHook(CtrlMenuCharacterSelect* ctrl, u32 weight
 }
 kmCall(0x807e2a20, GetCharacterIdForButtonHook);
 
+/*
+    Making room for Outfit C on the character grid.
+
+    CtrlMenuCharacterSelect::LoadButton builds each button from the brctr
+    "CharacterSelect<categoryCount>_<category>" with the variant "Button<idx % (categoryCount*2)>",
+    and it is that variant which carries the position. The Mii category is the last one, so
+    its buttons start at categoryCount * 6 (24 with the stock four columns): slot 0 is
+    Outfit A, slot 1 is Outfit B, and slot 2 is the Outfit C button this file adds. The
+    stock layout only ever placed two of them, so the third either lands on top of another
+    or wherever the loader left it.
+
+    Rather than depend on the brctr shipping a third position, the row is laid out here:
+    A and B slide left by one column and C takes the spot B used to occupy, which keeps all
+    three at the same height and puts C at the right end of the row. Positions are taken
+    from the buttons themselves, so this follows the assets instead of hardcoding coordinates.
+*/
+static const u32 MII_CATEGORY_STRIDE = 6;  // categoryCount * 6 == index of the first Mii button
+static const float MII_MIN_COLUMN_WIDTH = 1.0f;
+
+kmRuntimeUse(0x807e2928);
+static void LoadButtonAndPlaceMiis(CtrlMenuCharacterSelect* self, u32 idx, bool isMii) {
+    typedef void (*LoadButtonFn)(CtrlMenuCharacterSelect*, u32, bool);
+    const LoadButtonFn original = reinterpret_cast<LoadButtonFn>(kmRuntimeAddr(0x807e2928));
+    original(self, idx, isMii);
+
+    if (self == nullptr || self->driverButtonsArray == nullptr || self->categoryCount == 0) return;
+
+    // Only once the whole Mii row exists, which is when its last button has just loaded.
+    const u32 miiFirst = self->categoryCount * MII_CATEGORY_STRIDE;
+    if (idx != miiFirst + 2 || idx >= (u32)self->unlockedCharactersCount) return;
+
+    PositionAndScale* outfitA = self->driverButtonsArray[miiFirst].positionAndscale;
+    PositionAndScale* outfitB = self->driverButtonsArray[miiFirst + 1].positionAndscale;
+    PositionAndScale* outfitC = self->driverButtonsArray[idx].positionAndscale;
+
+    // A and B side by side is what the shift assumes. Stacked or coincident buttons mean
+    // the layout is not the one this was written for, so leave it untouched.
+    const float columnWidth = outfitB[1].position.x - outfitA[1].position.x;
+    if (columnWidth < MII_MIN_COLUMN_WIDTH) return;
+
+    for (u32 i = 0; i < 4; ++i) {
+        outfitC[i] = outfitB[i];
+        outfitB[i].position.x -= columnWidth;
+        outfitA[i].position.x -= columnWidth;
+    }
+}
+kmCall(0x807e27a0, LoadButtonAndPlaceMiis);
+
 // Make Mii Outfit C use the same name BMG as Mii Outfit A.
 // getCharaNameMsg has no case for C IDs and returns -1 for them.
 // We remap C -> corresponding A before the call so the name displays correctly.

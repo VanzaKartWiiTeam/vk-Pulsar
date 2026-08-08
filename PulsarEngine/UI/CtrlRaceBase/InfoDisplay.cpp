@@ -33,12 +33,9 @@ void CtrlRaceTrackInfoDisplay::Load() {
     ControlLoader loader(this);
     loader.Load("game_image", "CTInfo", "CTInfo", nullptr);
     this->textBox_00 = this->layout.GetPaneByName("TextBox_00");
-    const u32 bmgId = GetCurTrackBMG();
     Text::Info info;
-    info.bmgToPass[0] = bmgId;
-    u32 authorId = BMG_NINTENDO;
-    if(bmgId >= BMG_TRACKS) authorId = bmgId + BMG_AUTHORS - BMG_TRACKS;
-    info.bmgToPass[1] = authorId;
+    info.bmgToPass[0] = GetCurTrackBMG();
+    info.bmgToPass[1] = GetCurTrackAuthorBMG();
     this->SetMessage(BMG_INFO_DISPLAY, &info);
 }
 

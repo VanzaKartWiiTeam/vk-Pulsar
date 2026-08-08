@@ -162,13 +162,16 @@ void CupsConfig::SetLayout() {
 }
 Settings::Hook CTLayout(CupsConfig::SetLayout);
 
-void CupsConfig::GetExpertPath(char* dest, PulsarId id, TTMode mode) const {
+void CupsConfig::GetExpertPath(char* dest, PulsarId id, TTMode mode, u8 variantIdx) const {
     if (this->IsReg(id)) {
         const u32 crc32 = this->GetCRC32(id);
         snprintf(dest, IOS::ipcMaxPath, "/Experts/%s_%s.rkg", &crc32, System::ttModeFolders[mode]);
     }
-    else {
+    else if (variantIdx == 0) {
         snprintf(dest, IOS::ipcMaxPath, "/Experts/%d_%s.rkg", this->ConvertTrack_PulsarIdToRealId(id), System::ttModeFolders[mode]);
+    }
+    else {
+        snprintf(dest, IOS::ipcMaxPath, "/Experts/%d_v%d_%s.rkg", this->ConvertTrack_PulsarIdToRealId(id), variantIdx, System::ttModeFolders[mode]);
     }
 }
 

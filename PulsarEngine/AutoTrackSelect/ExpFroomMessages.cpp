@@ -24,7 +24,7 @@ void ExpFroomMessages::OnCourseButtonClick(PushButton& button, u32 hudSlotId) {
     u32 clickedIdx = clickedButtonIdx;
     s32 id = button.buttonId;
     PulsarId pulsarId = static_cast<PulsarId>(id);
-    if (clickedIdx == 0 || clickedIdx == 1 || clickedIdx == 7 || clickedIdx == 8) {
+    if (clickedIdx == 0 || clickedIdx == 1) {
         if (id == this->msgCount - 1) {
             pulsarId = cupsConfig->RandomizeTrack();
         }
@@ -46,14 +46,14 @@ static void OnStartButtonFroomMsgActivate() {
 
     if (!Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS)) {
         msg->onModeButtonClickHandler.ptmf = &Pages::FriendRoomMessages::OnModeButtonClick;
-        msg->msgCount = 9; // 4 standard + VK WW (4) + OTT WW (5) + Item Rain WW (6) + Item Rain VS (7) + Item Rain Team VS (8)
+        msg->msgCount = 7; // 4 standard + VK WW (4) + OTT WW (5) + Item Rain WW (6)
     }
     else {
         for (int i = 0; i < 4; ++i) msg->messages[0].buttons[i].HandleDeselect(0, -1);
         if (msg->isOnModeSelection) {
             msg->isOnModeSelection = false;
             if (msg->clickedButtonIdx == 4 || msg->clickedButtonIdx == 5 || msg->clickedButtonIdx == 6) return; // WW VKions already handled
-            if (msg->clickedButtonIdx == 0 || msg->clickedButtonIdx == 1 || msg->clickedButtonIdx == 7 || msg->clickedButtonIdx == 8) {
+            if (msg->clickedButtonIdx == 0 || msg->clickedButtonIdx == 1) {
                 msg->msgCount = CupsConfig::sInstance->GetEffectiveTrackCount() + 1;
             }
             else msg->msgCount = 10;
@@ -61,7 +61,7 @@ static void OnStartButtonFroomMsgActivate() {
         }
         else {
             msg->isOnModeSelection = true;
-            msg->msgCount = 9; // 4 standard + VK WW (4) + OTT WW (5) + Item Rain WW (6) + Item Rain VS (7) + Item Rain Team VS (8)
+            msg->msgCount = 7; // 4 standard + VK WW (4) + OTT WW (5) + Item Rain WW (6)
             msg->onModeButtonClickHandler.ptmf = &ExpFroomMessages::OnModeButtonClick;
         }
     }
@@ -96,8 +96,6 @@ u32 CorrectModeButtonsBMG(const RKNet::ROOMPacket& packet) {
     if (absRowIdx == 4) return BMG_VKWW_START_MESSAGE;
     if (absRowIdx == 5) return BMG_OTTWW_START_MESSAGE;
     if (absRowIdx == 6) return BMG_ITEMRAIN_WW_START_MESSAGE;
-    if (absRowIdx == 7) return BMG_ITEMRAIN_VS_START_MESSAGE;
-    if (absRowIdx == 8) return BMG_ITEMRAIN_TEAM_VS_START_MESSAGE;
 
     // Hostwins track/battle selection phase
     const bool hostwins = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS);

@@ -136,20 +136,29 @@ extern "C" void OSReport(const char* format, ...);
 
 void* PatchMiiHeadsOpacity(MiiHeadsModel& model, Mii* mii, MiiDriverModel* driverModel, u32 r6, nw4r::g3d::ScnMdl::BufferOption option,
     u32 r8, u32 id) {
-    if (mii == nullptr) return nullptr;
+    /*
+        The null guard stops InitModel from dereferencing a missing Mii, but it also means
+        the model silently never appears -- which is why the opponent has no Mii under
+        "Your opponents have been chosen!". Keep the guard, but say when it fires: the real
+        question is why the Mii pointer is null here, and this is the only place that knows.
+    */
+    if (mii == nullptr) {
+        OSReport("[VK MII] 807dc0e8: mii NULLO, modello saltato (id=%d r6=%d option=%d driverModel=%p)\n",
+                 (int)id, (int)r6, (int)option, driverModel);
+        return nullptr;
+    }
+    OSReport("[VK MII] 807dc0e8: mii=%p id=%d r6=%d option=%d\n", mii, (int)id, (int)r6, (int)option);
     if(Raceinfo::sInstance != nullptr && id == 0) model.scnObjDrawOptionsIdx = 0xA;
     return model.InitModel(mii, driverModel, r6, option, r8, id);
 }
 kmCall(0x807dc0e8, PatchMiiHeadsOpacity);
 
-//Diagnostica temporanea sul secondo call site (0x807dc11c): e' il percorso che crasha
-//dentro InitModel, e passa id = -1. Logghiamo gli argomenti per capire cosa e' invalido.
 static void* LogMiiHeadsInit(MiiHeadsModel& model, Mii* mii, MiiDriverModel* driverModel, u32 r6,
     nw4r::g3d::ScnMdl::BufferOption option, u32 r8, u32 id) {
     OSReport("[VK MII] InitModel@807dc11c: model=%p mii=%p driverModel=%p r6=%d option=%d r8=0x%X id=%d\n",
              &model, mii, driverModel, (int)r6, (int)option, r8, (int)id);
     void* ret = model.InitModel(mii, driverModel, r6, option, r8, id);
-    OSReport("[VK MII] InitModel ritornato: %p\n", ret);
+    OSReport("[VK MII] InitModel returned: %p\n", ret);
     return ret;
 }
 kmCall(0x807dc11c, LogMiiHeadsInit);

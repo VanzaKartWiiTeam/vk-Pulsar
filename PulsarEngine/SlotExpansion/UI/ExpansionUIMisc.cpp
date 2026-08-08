@@ -3,6 +3,8 @@
 #include <MarioKartWii/UI/Page/Menu/CourseSelect.hpp>
 #include <MarioKartWii/UI/Page/Other/GhostSelect.hpp>
 #include <MarioKartWii/UI/Page/Other/Votes.hpp>
+#include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/Race/RaceInfo/RaceInfo.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
@@ -144,9 +146,6 @@ static void LoadCorrectTrackListBox(ControlLoader& loader, const char* folder, c
 }
 kmCall(0x807e5f24, LoadCorrectTrackListBox);
 
-//Offset che il Pack Creator somma agli id BMG per le voci tradotte (Builder.cs scrive
-//BMG_TRACKS + langOff + idx, e per le varianti 0x420000 + langOff + (idx<<4) + variantIdx).
-//Senza sommarlo qui il gioco chiede sempre e solo le voci della lingua di default.
 static u32 GetLanguageTrackOffset() {
     const Language currentLanguage = static_cast<Language>(
         Settings::Mgr::Get().GetUserSettingValue(Settings::SETTINGSTYPE_LANGUAGE, SCROLLER_LANGUAGE));
@@ -163,10 +162,6 @@ static u32 GetLanguageTrackBase() {
     return BMG_TRACKS + GetLanguageTrackOffset();
 }
 
-//Lo schema vecchio era BMG_TRACKS + realId + (variantIdx << 12). Il Pack Creator non ha mai
-//scritto nulla a quegli id, quindi i nomi delle varianti non si risolvevano; e con variantIdx 8
-//(nome comune di una traccia con varianti) 8 << 12 vale 0x8000, cioe' esattamente l'offset
-//dell'italiano: la traccia con varianti pescava la voce tradotta anche a gioco in inglese.
 int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx) {
     u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
     if (CupsConfig::IsReg(pulsarId)) {
@@ -183,6 +178,33 @@ int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx) {
     return VARIANT_TRACKS_BASE + (realId << 4) + static_cast<u32>(variantIdx) + languageBase;
 }
 
+/*
+    L'autore NON si ricava dall'id del nome. Per anni si e' fatto `bmgId + BMG_AUTHORS -
+    BMG_TRACKS`, che regge solo finche' i due schemi differiscono di 0x10000 secco. Con le
+    lingue e le varianti non e' piu' cosi', e Builder.cs (WriteVariant) scrive:
+
+      autore della principale   BMG_AUTHORS + idx                        (nessun offset lingua)
+      autore della variante N>0 0x520000 + (idx << 4) + N                (nessun offset lingua)
+
+    Gli autori non sono tradotti, sono nomi propri. Sommando il delta all'id del nome ci si
+    portava dietro l'offset di lingua (italiano 0x8000) e, per le varianti, si finiva a
+    0x430000 invece che a 0x520000: voce inesistente, quindi "di " senza nome.
+*/
+int GetTrackAuthorBMGId(PulsarId pulsarId, u8 variantIdx) {
+    const CupsConfig* cupsConfig = CupsConfig::sInstance;
+    if (cupsConfig == nullptr || CupsConfig::IsReg(pulsarId)) return BMG_NINTENDO;
+
+    const u32 realId = CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId);
+    if (variantIdx == 8) variantIdx = 0;
+
+    if (variantIdx == 0 || cupsConfig->GetTrack(pulsarId).variantCount == 0) {
+        return BMG_AUTHORS + realId;
+    }
+
+    const u32 VARIANT_AUTHORS_BASE = 0x520000;
+    return VARIANT_AUTHORS_BASE + (realId << 4) + static_cast<u32>(variantIdx);
+}
+
 //BMG
 int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
     u8 variantIdx = 0;
@@ -196,6 +218,28 @@ int GetTrackBMGId(PulsarId pulsarId, bool useCommonName) {
             }
             variantIdx = static_cast<u8>(cupsConfig->GetCurVariantIdx());
         }
+    }
+    return GetTrackVariantBMGId(pulsarId, variantIdx);
+}
+
+/*
+    Same as GetTrackBMGId(id, false), except the variant comes from the caller instead of
+    from CupsConfig::GetCurVariantIdx(). Online that matters: GetCurVariantIdx() is what
+    *this* console picked, so using it for another player's vote, or for the winning track
+    before SetCorrectTrack has run, names the wrong variant.
+*/
+int GetTrackBMGIdForVariant(PulsarId pulsarId, u8 variantIdx) {
+    const CupsConfig* cupsConfig = CupsConfig::sInstance;
+    if (cupsConfig == nullptr) return BMG_TRACKS;
+    if (CupsConfig::IsReg(pulsarId)) return GetTrackVariantBMGId(pulsarId, 0);
+
+    const u8 variantCount = cupsConfig->GetTrack(pulsarId).variantCount;
+    if (variantCount == 0) return GetTrackVariantBMGId(pulsarId, 0);
+
+    // Out of range means the sender never told us; fall back to the common name rather
+    // than naming a variant at random.
+    if (variantIdx > variantCount) {
+        return CupsConfig::ConvertTrack_PulsarIdToRealId(pulsarId) + GetLanguageTrackBase();
     }
     return GetTrackVariantBMGId(pulsarId, variantIdx);
 }
@@ -254,14 +298,21 @@ int GetCurTrackBMG() {
     return GetTrackBMGId(CupsConfig::sInstance->GetWinning(), false);
 }
 
+int GetCurTrackAuthorBMG() {
+    const CupsConfig* cupsConfig = CupsConfig::sInstance;
+    if (cupsConfig == nullptr) return BMG_NINTENDO;
+    const PulsarId winning = cupsConfig->GetWinning();
+    u8 variantIdx = 0;
+    if (!CupsConfig::IsReg(winning) && cupsConfig->GetTrack(winning).variantCount > 0) {
+        variantIdx = static_cast<u8>(cupsConfig->GetCurVariantIdx());
+    }
+    return GetTrackAuthorBMGId(winning, variantIdx);
+}
+
 static void SetVSIntroBmgId(LayoutUIControl* trackName) {
-    u32 bmgId = GetCurTrackBMG();
     Text::Info info;
-    info.bmgToPass[0] = bmgId;
-    u32 authorId;
-    if (bmgId < BMG_TRACKS) authorId = BMG_NINTENDO;
-    else authorId = bmgId + BMG_AUTHORS - BMG_TRACKS;
-    info.bmgToPass[1] = authorId;
+    info.bmgToPass[0] = GetCurTrackBMG();
+    info.bmgToPass[1] = GetCurTrackAuthorBMG();
     trackName->SetMessage(BMG_INFO_DISPLAY, &info);
 }
 kmCall(0x808552cc, SetVSIntroBmgId);
@@ -366,9 +417,33 @@ void SetVoteControlMessage(VoteControl& vote, u32 bmgId, PulsarId courseVote, u3
     }
 }
 
+/*
+    Variant the given entry of the vote screen actually voted for. Every console puts its
+    own pick in PulSELECT::voteVariantIdx, indexed by the slot on that console, so a
+    remote vote is read out of that player's received packet. 0xFF means "not known", and
+    GetTrackBMGIdForVariant turns that back into the common name.
+*/
+static u8 GetVotedVariantIdx(u32 playerId) {
+    if (SectionMgr::sInstance == nullptr || SectionMgr::sInstance->curSection == nullptr) return 0xFF;
+    const Pages::SELECTStageMgr* mgr = SectionMgr::sInstance->curSection->Get<Pages::SELECTStageMgr>();
+    if (mgr == nullptr || playerId >= mgr->playerCount) return 0xFF;
+
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if (controller == nullptr) return 0xFF;
+
+    const u8 aid = mgr->infos[playerId].aid;
+    const u8 slot = mgr->infos[playerId].hudSlotid;
+    if (aid >= 12 || slot >= 2) return 0xFF;
+
+    const Network::ExpSELECTHandler& handler = Network::ExpSELECTHandler::Get();
+    const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
+    if (aid == sub.localAid) return handler.toSendPacket.voteVariantIdx[slot];
+    return handler.receivedPackets[aid].voteVariantIdx[slot];
+}
+
 static void CourseVoteBMG(VoteControl* vote, bool isCourseIdInvalid, PulsarId courseVote, MiiGroup& miiGroup, u32 playerId, bool isLocalPlayer, u32 team) {
     u32 bmgId = courseVote;
-    if (bmgId != 0x1101 && bmgId < 0x2498) bmgId = GetTrackBMGId(courseVote, true);
+    if (bmgId != 0x1101 && bmgId < 0x2498) bmgId = GetTrackBMGIdForVariant(courseVote, GetVotedVariantIdx(playerId));
     vote->Fill(isCourseIdInvalid, bmgId, miiGroup, playerId, isLocalPlayer, team);
     SetVoteControlMessage(*vote, bmgId, courseVote, playerId);
 }
@@ -384,10 +459,26 @@ kmCall(0x8083d02c, BattleArenaBMGFix);
 
 
 //kmWrite32(0x80644340, 0x7F64DB78);
+/*
+    Runs at 0x80644344, ahead of SetCorrectTrack (0x80644414) which is what finally puts
+    the winning variant into CupsConfig. So the variant is read straight out of the host's
+    SELECT packet here, exactly as SetCorrectTrack does, instead of falling back to the
+    common name.
+*/
 static void WinningTrackBMG(PulsarId winningCourse) {
     register Pages::Vote* vote;
     asm(mr vote, r27;);
-    vote->trackBmgId = GetTrackBMGId(winningCourse, true);
+
+    u8 variantIdx = 0xFF;
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if (controller != nullptr) {
+        const Network::ExpSELECTHandler& handler = Network::ExpSELECTHandler::Get();
+        const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
+        const u8 hostAid = sub.hostAid;
+        if (hostAid == sub.localAid) variantIdx = handler.toSendPacket.variantIdx;
+        else if (hostAid < 12) variantIdx = handler.receivedPackets[hostAid].variantIdx;
+    }
+    vote->trackBmgId = GetTrackBMGIdForVariant(winningCourse, variantIdx);
 }
 kmCall(0x80644344, WinningTrackBMG);
 

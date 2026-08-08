@@ -8,7 +8,9 @@
 namespace Pulsar {
 namespace UI {
 int GetTrackVariantBMGId(PulsarId pulsarId, u8 variantIdx);
+int GetTrackAuthorBMGId(PulsarId pulsarId, u8 variantIdx);
 int GetTrackBMGId(PulsarId pulsarId, bool useCommonName);
+int GetTrackBMGIdForVariant(PulsarId pulsarId, u8 variantIdx);
 bool IsTrackBlocked(PulsarId id);
 const wchar_t* GetTrackName(s32 bmgId);
 void BuildRainbowTrackName(wchar_t* dest, const wchar_t* src, u32 maxChars);
@@ -37,6 +39,7 @@ inline void GetTrackBMG(char* dest, PulsarId id) {
 }
 int GetTrackBMGByRowIdx(u32 cupTrackIdx);
 int GetCurTrackBMG();
+int GetCurTrackAuthorBMG();
 }//namespace UI
 }//namespace Pulsar
 #endif

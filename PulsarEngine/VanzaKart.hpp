@@ -14,8 +14,6 @@ extern u8 CommonRename;
 extern u8 AwardRename;
 
 namespace Languages {
-//Riscrive i byte di lingua nei percorsi. Chiamata da un BootHook e di nuovo da
-//SettingsPanel quando la lingua cambia.
 void ApplyArchiveLanguage();
 }
 
