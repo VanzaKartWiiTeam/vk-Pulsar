@@ -44,6 +44,7 @@ enum Context {
     PULSAR_STARTMOGI,
     PULSAR_EXTENDEDTEAMS,
     PULSAR_VR, //ranked friend room
+    PULSAR_MODE_COUNTDOWN, //terza voce dello scroller dei modi in Race settings
     PULSAR_CONTEXT_COUNT,
 };
 

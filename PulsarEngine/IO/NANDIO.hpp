@@ -23,6 +23,7 @@ class NANDIO : public IO {
     void ReadFolder(const char* path) override;
 
     friend IO* IO::CreateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
+    friend IO* IO::CreatePrivateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
 
 
 

@@ -10,6 +10,12 @@ namespace Pulsar {
 IO* IO::sInstance = nullptr;
 
 IO* IO::CreateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread) {
+    IO* io = IO::CreatePrivateInstance(type, heap, taskThread);
+    IO::sInstance = io;
+    return io;
+}
+
+IO* IO::CreatePrivateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread) {
     IO* io;
     switch (type) {
         case IOType_RIIVO:
@@ -23,14 +29,13 @@ IO* IO::CreateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const task
             io = new (heap) SDIO(type, heap, taskThread);
             break;
     }
-    IO::sInstance = io;
     return io;
 }
 
 //FILE
 #pragma suppress_warnings on
 bool IO::OpenFileDirectly(const char* path, u32 mode) {
-    if(type == IOType_ISO) return -1;
+    if(type == IOType_ISO) return false;
     this->fd = IO::OpenFix(path, static_cast<IOS::Mode>(mode));
     return this->fd >= 0;
 }

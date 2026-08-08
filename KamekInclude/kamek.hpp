@@ -239,6 +239,20 @@ public:
     static void Exec() { DoFuncsHook::Exec(raceFrameHooks); }
 };
 
+class PageLoadHook : public DoFuncsHook {
+    static DoFuncsHook* pageLoadHooks;
+public:
+    PageLoadHook(Func& f) : DoFuncsHook(f, &pageLoadHooks) {}
+    static void Exec() { DoFuncsHook::Exec(pageLoadHooks); }
+};
+
+class PageLoadHook2 : public DoFuncsHook {
+    static DoFuncsHook* pageLoadHooks2;
+public:
+    PageLoadHook2(Func& f) : DoFuncsHook(f, &pageLoadHooks2) {}
+    static void Exec() { DoFuncsHook::Exec(pageLoadHooks2); }
+};
+
 class SectionLoadHook {
    private:
     typedef void(Func)();
@@ -279,6 +293,7 @@ public:
     }
 
     static bool executed;
+    static bool executedFromFallback;
 
     //Idempotent: the original boot point is not reached on every launch path (the
     //homebrew channel route skips it), so a fallback trigger runs this later. Whichever

@@ -1325,9 +1325,8 @@ static bool ModsRootExists() {
     const void* fst = OS::BootInfo::mInstance.FSTLocation;
     const u32 fstCount = (fst != nullptr) ? static_cast<const FSTEntry*>(fst)[0].size : 0;
     sModsRootPresent = FindModsDirInFST(modsIndex, modsEnd);
-    OS::Report("[VK MODS] probe root='%s' FST=%p voci=%u trovataNelFST=%d\n",
+    OS::Report("[VK MODS] probe root='%s' FST=%p entries=%u foundInFST=%d\n",
                kModsRoot, fst, fstCount, (int)sModsRootPresent);
-    //Diagnostica: elenca le voci di primo livello dell'FST per vedere cosa Riivolution ha creato.
     if (fst != nullptr && fstCount > 1) {
         const FSTEntry* e = static_cast<const FSTEntry*>(fst);
         const char* names = reinterpret_cast<const char*>(fst) + fstCount * sizeof(FSTEntry);
@@ -1335,7 +1334,7 @@ static bool ModsRootExists() {
         while (i < fstCount && i < 4000) {
             const bool isDir = (e[i].typeName >> 24) != 0;
             OS::Report("[VK FST] %s '%s'\n", isDir ? "DIR " : "file", names + (e[i].typeName & 0xFFFFFF));
-            i = isDir ? e[i].size : i + 1; //salta il contenuto: solo il primo livello
+            i = isDir ? e[i].size : i + 1;
         }
     }
     if (!sModsRootPresent) {
@@ -2069,6 +2068,21 @@ static void ScanModsDirFromIO(IO& io, ScanBuildState& state, u32 maxTaggedCount,
 }
 
 static void ScanModsDirSD(ScanBuildState& state, u32 maxTaggedCount, u32 maxWholeFileCount, u32 maxBRSARCount) {
+    IO* io = IO::sInstance;
+    if (io == nullptr) return;
+    if (!ShouldProbeSDModsPath()) return;
+
+    if (io->type == IOType_SD) {
+        ScanModsDirFromIO(*io, state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
+        return;
+    }
+
+    System* system = System::sInstance;
+    if (system == nullptr) return;
+
+    // Dolphin channel mode is not backed by the main IO object, so scan through a stack SDIO instance.
+    SDIO sdIo(IOType_SD, system->heap, system->taskThread);
+    ScanModsDirFromIO(sdIo, state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
 }
 
 static void ScanModsDir(ScanBuildState& state, u32 maxTaggedCount, u32 maxWholeFileCount, u32 maxBRSARCount) {

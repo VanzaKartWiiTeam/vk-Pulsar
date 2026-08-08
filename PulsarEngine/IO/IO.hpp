@@ -37,6 +37,9 @@ public:
     static inline s32 OpenFix(const char* path, IOS::Mode mode) {
         asmVolatile(stwu sp, -0x0020 (sp););
         IOS::Open2ndInst(path, mode);
+        register s32 result;
+        asm(mr result, r3;);
+        return result;
     }
 
     virtual bool OpenFile(const char* path, u32 mode) = 0;
@@ -50,6 +53,9 @@ public:
 
     static IO* sInstance;
     static IO* CreateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
+    //Same backends, but the result is NOT installed as sInstance. Needed by subsystems that
+    //run on another thread and must not share fd/fileData/folderName with the global IO.
+    static IO* CreatePrivateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
     template<typename T>
     T* Alloc(u32 size) const { return EGG::Heap::alloc<T>(nw4r::ut::RoundUp(size, 0x20), 0x20, this->heap); }
     virtual s32 GetFileSize();

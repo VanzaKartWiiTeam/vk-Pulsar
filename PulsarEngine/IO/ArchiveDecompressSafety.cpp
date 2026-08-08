@@ -18,8 +18,9 @@ namespace Pulsar {
 //the normal boot point did fire first.
 static void EnsureBootHooksRan() {
     if(BootHook::executed) return;
-    OS::Report("[VK] boot point saltato: eseguo i BootHook dal fallback (%d in lista)\n",
+    OS::Report("[VK] boot point skipped: running the BootHooks from the fallback (%d in list)\n",
                (int)BootHook::list.count);
+    BootHook::executedFromFallback = true;
     BootHook::Exec();
 }
 

@@ -14,6 +14,7 @@
 #include <SlotExpansion/CupsConfig.hpp>
 #include <core/egg/DVD/DvdRipper.hpp>
 #include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
+#include <Debug/Debug.hpp>
 namespace Pulsar {
 
 namespace Network {
@@ -54,16 +55,21 @@ System::System() :
     rawBmg = nullptr;
 }
 
+static s32 sDolphinProbe = 1;
+static s32 sRiivoProbe = 1;
+
 void System::Init(const ConfigFile& conf) {
     IOType type = IOType_ISO;
     bool isDolphin = false;
     s32 ret = IO::OpenFix("/dev/dolphin", IOS::MODE_NONE);
+    sDolphinProbe = ret;
     if (ret >= 0) {
         isDolphin = true;
         IOS::Close(ret);
     }
 
     ret = IO::OpenFix("file", IOS::MODE_NONE);
+    sRiivoProbe = ret;
     if (ret >= 0 && !IsNewChannel()) {
         type = IOType_RIIVO;
         IOS::Close(ret);
@@ -113,6 +119,63 @@ void System::Init(const ConfigFile& conf) {
 }
 
 //IO
+#define PULSAR_IO_SELFTEST 1
+
+#if PULSAR_IO_SELFTEST
+static const char* IOTypeName(IOType type) {
+    switch(type) {
+        case IOType_RIIVO: return "RIIVO";
+        case IOType_ISO: return "ISO (no writable backend!)";
+        case IOType_DOLPHIN: return "DOLPHIN";
+        case IOType_SD: return "SD";
+    }
+    return "unknown";
+}
+
+static void IOSelfTest(IO* io, const char* modFolder) {
+    char path[IOS::ipcMaxPath];
+    snprintf(path, IOS::ipcMaxPath, "%s/IOTest.pul", modFolder);
+
+    const u32 magic = 'PIOT';
+    alignas(0x20) u32 buffer = magic;
+    const char* step = nullptr;
+
+    if(!io->CreateAndOpen(path, FILE_MODE_READ_WRITE)) step = "CreateAndOpen";
+    else {
+        if(io->Overwrite(sizeof(u32), &buffer) != sizeof(u32)) step = "Overwrite";
+        io->Close();
+    }
+    if(step == nullptr) {
+        buffer = 0;
+        if(!io->OpenFile(path, FILE_MODE_READ)) step = "OpenFile (re-read)";
+        else {
+            if(io->Read(sizeof(u32), &buffer) != sizeof(u32)) step = "Read";
+            else if(buffer != magic) step = "compare (the file is empty)";
+            io->Close();
+        }
+    }
+    if(step != nullptr) {
+        s32 retryRiivo = IO::OpenFix("file", IOS::MODE_NONE);
+        if(retryRiivo >= 0) IOS::Close(retryRiivo);
+
+        char message[0x200];
+        snprintf(message, sizeof(message),
+                 "Pulsar: IO SELF-TEST FAILED\n\n"
+                 "backend: %s\n"
+                 "step: %s\n"
+                 "path: %s\n"
+                 "fallback: %s\n"
+                 "\"file\" at boot: %d\n"
+                 "\"file\" now: %d\n"
+                 "/dev/dolphin: %d",
+                 IOTypeName(io->type), step, path,
+                 BootHook::executedFromFallback ? "yes" : "no",
+                 sRiivoProbe, retryRiivo, sDolphinProbe);
+        Debug::FatalError(message);
+    }
+}
+#endif
+
 #pragma suppress_warnings on
 void System::InitIO(IOType type) const {
 
@@ -129,6 +192,9 @@ void System::InitIO(IOType type) const {
     char ghostPath[IOS::ipcMaxPath];
     snprintf(ghostPath, IOS::ipcMaxPath, "%s%s", modFolder, "/Ghosts");
     io->CreateFolder(ghostPath);
+#if PULSAR_IO_SELFTEST
+    IOSelfTest(io, modFolder);
+#endif
 }
 #pragma suppress_warnings reset
 
@@ -166,6 +232,7 @@ void System::UpdateContext() {
     bool isStartMogi = false;
     bool isItemRainActive = false;
     bool isItemStormActive = false;
+    bool isCountdown = false;
     bool isAllItemsCanLand = false;
     bool isKOFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
     bool isExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
@@ -208,7 +275,10 @@ void System::UpdateContext() {
                         | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
                         | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS
-                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_RANKED) == HOSTSETTING_RANKED_ENABLED) << PULSAR_VR;
+                        //Same term PulROOM puts in the packet, so the host's own context matches
+                        //what its clients receive.
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_ITEMRAIN) << PULSAR_ITEMMODERAIN
+                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_COUNTDOWN) << PULSAR_MODE_COUNTDOWN;
                     netMgr.hostContext = newContext;
                     OSReport("[Pulsar LOG] UpdateContext: Host compiled newContext=0x%08X (localTeams=%d)\n", newContext, isLocalExtendedTeams);
                 } else {
@@ -226,6 +296,7 @@ void System::UpdateContext() {
                 isStartMogi = newContext & (1 << PULSAR_STARTMOGI);
                 isItemRainActive = newContext & (1 << PULSAR_ITEMMODERAIN);
                 isItemStormActive = newContext & (1 << PULSAR_ITEMMODESTORM);
+                isCountdown = newContext & (1 << PULSAR_MODE_COUNTDOWN);
                 isAllItemsCanLand = newContext & (1 << PULSAR_ALLITEMSCANLAND);
                 isKOFinal = newContext & (1 << PULSAR_KOFINAL);
                 isExtendedTeams = newContext & (1 << PULSAR_EXTENDEDTEAMS);
@@ -240,7 +311,7 @@ void System::UpdateContext() {
         }
         if (isRegionalRoom) {
             const u32 region = Network::REGIONID;
-            if (region == 0xCD) {
+            if (region == 0x69) {
                 isOTT = true;
             } else if (region == 0x71) {
                 isItemRainActive = true;
@@ -253,6 +324,14 @@ void System::UpdateContext() {
         if(isOTT) {
             isFeather &= (ottOffline == OTTSETTING_OFFLINE_FEATHER);
             isUMTs &= ~settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS);
+        }
+        //Offline VS reads the item mode straight from the Race settings scroller. Note that
+        //isItemRainActive only reaches `context` inside the isCT block below, so the mode needs
+        //custom tracks enabled to take effect.
+        if(mode == MODE_VS_RACE) {
+            const u8 raceMode = settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE);
+            isItemRainActive = raceMode == RACESETTING_ITEMMODE_ITEMRAIN;
+            isCountdown = raceMode == RACESETTING_ITEMMODE_COUNTDOWN;
         }
     }
     this->netMgr.hostContext = newContext;
@@ -272,7 +351,8 @@ void System::UpdateContext() {
             | (isItemStormActive << PULSAR_ITEMMODESTORM)
             | (isAllItemsCanLand << PULSAR_ALLITEMSCANLAND)
             | (isKOFinal << PULSAR_KOFINAL)
-            | (isExtendedTeams << PULSAR_EXTENDEDTEAMS);
+            | (isExtendedTeams << PULSAR_EXTENDEDTEAMS)
+            | (isCountdown << PULSAR_MODE_COUNTDOWN);
     }
     this->context = context;
     OSReport("[Pulsar LOG] UpdateContext: final context=0x%08X (extendedTeams=%d)\n", context, isExtendedTeams);
@@ -342,8 +422,8 @@ kmWrite32(0x80549974, 0x38600001);
 kmRegionWrite32(0x80604094, 0x4800001c, 'E');
 
 // VanzaKart WWFC pack identification
-kmWrite32(0x800017D0, 204);   // pack_id
-kmWrite32(0x800017D4, 105);      // pack_version
+kmWrite32(0x800017D0, 104);   // pack_id
+kmWrite32(0x800017D4, 123);      // pack_version
 
 const char System::pulsarString[] = "/Pulsar";
 const char System::CommonAssets[] = "/CommonAssets.szs";

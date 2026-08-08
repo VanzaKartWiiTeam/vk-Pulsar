@@ -117,6 +117,7 @@ class RiivoIO : public IO {
     RiivoMode GetRiivoMode(u32 mode) const;
 
     friend IO* IO::CreateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
+    friend IO* IO::CreatePrivateInstance(IOType type, EGG::Heap* heap, EGG::TaskThread* const taskThread);
 };
 
 struct RiivoStats {
