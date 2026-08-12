@@ -1,4 +1,5 @@
 #include <kamek.hpp>
+#include <core/rvl/os/OS.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
 #include <core/System/SystemManager.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
@@ -68,6 +69,13 @@ static bool ConvertFriendRoomStateToRegional() {
     if (!wasHost && !wasNonHost) {
         return false;
     }
+#ifdef ACDIAG
+    OS::Report("[FROOM DIAG] converting to regional: wasHost=%d wasNonHost=%d"
+               " friendToJoin=%d/%d ownStatusData=%d REGIONID=0x%02X\n",
+               (int)wasHost, (int)wasNonHost,
+               (int)controller->subs[0].friendToJoin, (int)controller->subs[1].friendToJoin,
+               (int)system->netMgr.ownStatusData, REGIONID);
+#endif
 
     Racedata* racedata = Racedata::sInstance;
     if (racedata == nullptr) {
@@ -159,7 +167,6 @@ static void ApplyNextSection(SectionMgr* sectionMgr, SectionId nextSectionId, u3
 }
 
 static void SetNextSectionRegionalHook(SectionMgr* sectionMgr, SectionId nextSectionId, u32 animDirection) {
-    // FIX: SetRegionId ora è void() — aggiorna REGIONID dal controller
     SetRegionId();
     bool isFroom = RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_FROOM_HOST ||
                    RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_FROOM_NONHOST;

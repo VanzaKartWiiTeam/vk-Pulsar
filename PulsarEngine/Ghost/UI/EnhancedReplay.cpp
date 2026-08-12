@@ -143,7 +143,7 @@ void* PatchMiiHeadsOpacity(MiiHeadsModel& model, Mii* mii, MiiDriverModel* drive
         question is why the Mii pointer is null here, and this is the only place that knows.
     */
     if (mii == nullptr) {
-        OSReport("[VK MII] 807dc0e8: mii NULLO, modello saltato (id=%d r6=%d option=%d driverModel=%p)\n",
+        OSReport("[VK MII] 807dc0e8: mii is NULL, model skipped (id=%d r6=%d option=%d driverModel=%p)\n",
                  (int)id, (int)r6, (int)option, driverModel);
         return nullptr;
     }

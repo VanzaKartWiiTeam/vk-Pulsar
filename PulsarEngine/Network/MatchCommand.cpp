@@ -59,7 +59,6 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
         }
         else if(roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
             if(packet->pulInfo.statusData != mgr.ownStatusData) {
-                OS::Report("[VK RESV] deny pid=%u motivo=OTT status=%d/%d\n",
                            pid, (int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
                 denyType = DENY_TYPE_OTT;
                 type = DWC::MATCH_COMMAND_RESV_DENY;
@@ -74,7 +73,7 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
                 u32* bannedPIDs = roomKick->GetKickHistory(bannedCount);
                 for (u32 i = 0; i < bannedCount; i++) {
                     if (bannedPIDs[i] == pid) {
-                        OS::Report("[VK RESV] deny pid=%u motivo=KICK (kickedCount=%u)\n", pid, bannedCount);
+                        OS::Report("[VK RESV] deny pid=%u reason=KICK (kickedCount=%u)\n", pid, bannedCount);
                         denyType = DENY_TYPE_KICK;
                         type = DWC::MATCH_COMMAND_RESV_DENY;
                         break;
@@ -85,7 +84,7 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
 
         //Logged unconditionally: if the joining console reports a denied reservation and this
         //line says OK, the deny came from vanilla DWC/RKNet, not from any Pulsar check.
-        OS::Report("[VK RESV] esito pid=%u roomType=%d -> %s\n", pid, roomType,
+        OS::Report("[VK RESV] result pid=%u roomType=%d -> %s\n", pid, roomType,
                    type == DWC::MATCH_COMMAND_RESV_DENY ? "DENY" : "OK");
     }
     mgr.denyType = denyType;
@@ -110,8 +109,8 @@ static void HasBeenPulsarDenied(u32 level, const char* string) {
         type = static_cast<DenyType>(error & 0xf);
         if(RKNet::Controller::sInstance->roomType == RKNet::ROOMTYPE_VS_REGIONAL && type == DENY_TYPE_BAD_PACK) mgr.deniesCount++;
     }
-    //Joining side: which reason the host encoded in the RESV_DENY (0=normale, 1=pack, 2=OTT, 3=kick).
-    OS::Report("[VK RESV] negato dall'host: error=0x%X -> denyType=%d\n", error, (int)type);
+    //Joining side: which reason the host encoded in the RESV_DENY (0=normal, 1=pack, 2=OTT, 3=kick).
+    OS::Report("[VK RESV] denied by host: error=0x%X -> denyType=%d\n", error, (int)type);
     Pulsar::System::sInstance->netMgr.denyType = type;
     DWC::Printf(level, string);
 }

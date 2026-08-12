@@ -99,3 +99,4 @@ KamekLinker/Kamek.exe
 # AntiCheat: kept out of the public tree on purpose
 PulsarEngine/AntiCheat.cpp
 PulsarEngine/AntiCheat.hpp
+PulsarEngine/AntiCheatDiag.cpp

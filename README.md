@@ -50,3 +50,8 @@ Network:
 
 Credits:
 - Treeki for [Kamek](https://github.com/Treeki/Kamek/tree/master). The engine has been ever so slightly modified to create a new output format which combines the usual 4 binaries. 
+
+
+Vanza Kart Wii
+
+Vanza Kart Wii is a modpack of mkwii based on the pulsar code. i'll continue this when i want

@@ -1,4 +1,5 @@
 #include <MarioKartWii/UI/Page/Other/GlobeSearch.hpp>
+#include <core/rvl/os/OS.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <Settings/UI/ExpWFCMainPage.hpp>
 #include <UI/UI.hpp>
@@ -236,6 +237,11 @@ void ExpWFCModeSel::BeforeControlUpdate() {
 static void SetTextBoxMessageSafe(LayoutUIControl& control, const char* textBoxName, u32 bmgId, const Text::Info* textInfo = nullptr) {
     if (control.layout.GetPaneByName(textBoxName) != nullptr) {
         control.SetTextBoxMessage(textBoxName, bmgId, textInfo);
+#ifdef ACDIAG
+        OS::Report("[WFC DIAG] wrote pane '%s' bmg %04x\n", textBoxName, bmgId);
+    } else {
+        OS::Report("[WFC DIAG] MISSING pane '%s' (wanted bmg %04x) - label stays blank\n", textBoxName, bmgId);
+#endif
     }
 }
 

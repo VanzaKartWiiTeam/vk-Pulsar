@@ -1341,7 +1341,6 @@ static bool ModsRootExists() {
         // Disc FST lookup is preferred; SD probing is only the fallback path.
         sModsRootPresent = ModsRootExistsOnSD();
         IO* io = IO::sInstance;
-        OS::Report("[VK MODS] fallback SD: ioType=%d probeConsentito=%d esito=%d\n",
                    (io != nullptr) ? (int)io->type : -1, (int)ShouldProbeSDModsPath(), (int)sModsRootPresent);
     }
     return sModsRootPresent;

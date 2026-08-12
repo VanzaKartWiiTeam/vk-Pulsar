@@ -33,7 +33,12 @@ if %ErrorLevel% equ 0 (
 :: Compiler flags and folder
 SET CFLAGS=-I- -i %ENGINE% -i %GAMESOURCE% -i %PULSAR% ^
   -opt all -inline auto -enum int -fp hard -sdata 0 -sdata2 0 -maxerrors 1 -func_align 4 %cwDWARF%
+:: Pass -prod to build a release: this is what enables the WiiLink codehandler
+:: check that refuses online logins when the Gecko handler is loaded. It is off by
+:: default so cheats stay usable for local testing.
 SET DEFINE= -DBETA
+if /I "%1" equ "-prod" SET DEFINE= -DBETA -DPROD
+if /I "%1" equ "-prod" echo Building with -DPROD: online cheat check ENABLED
 
 if "!CC!" == "" (
     echo You need to specify the path to CodeWarrior by setting the CC variable
