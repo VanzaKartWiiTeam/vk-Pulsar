@@ -54,7 +54,7 @@ void ExpVR::OnInit() {
     this->settingsButton.SetOnClickHandler(this->onSettingsClick, 0);
     this->settingsButton.SetOnSelectHandler(this->onButtonSelectHandler);
     this->settingsButton.isHidden = hideSettings;
-    this->topSettingsPage = SettingsPanel::id;
+    this->topSettingsPage = SettingsPageSelect::id;
 
     const Section* curSection = SectionMgr::sInstance->curSection;
     Pages::SELECTStageMgr* selectStageMgr = curSection->Get<Pages::SELECTStageMgr>();
@@ -62,7 +62,7 @@ void ExpVR::OnInit() {
 
     // Share timer with settings panel
     SettingsPanel* settingsPanel = ExpSection::GetSection()->GetPulPage<SettingsPanel>();
-    settingsPanel->timer = timer;
+    if(settingsPanel != nullptr) settingsPanel->timer = timer;
 
     bool isKOd = false;
     if(system->IsContext(PULSAR_MODE_KO) && system->koMgr->isSpectating) isKOd = true;
@@ -77,9 +77,6 @@ void ExpVR::OnInit() {
     this->changeComboButton.Load(UI::buttonFolder, "PULiMemberConfirmButton", "Change", 1, 0, isKOd);
     this->changeComboButton.SetOnClickHandler(this->onChangeComboClick, 0);
     this->changeComboButton.manipulator.SetAction(START_PRESS, this->changeComboButton.onClickHandlerObj, 0);
-
-    this->topSettingsPage = SettingsPageSelect::id;
-
 
     Pages::CharacterSelect* charPage = curSection->Get<Pages::CharacterSelect>();
     charPage->timer = timer;
@@ -166,7 +163,11 @@ void ExpVR::ChangeCombo(PushButton& changeComboButton, u32 hudSlotId) {
 void ExpVR::OnSettingsButtonClick(PushButton& button, u32 hudSlotId) {
     this->areControlsHidden = true;
     SettingsPanel* settingsPanel = ExpSection::GetSection()->GetPulPage<SettingsPanel>();
+    SettingsPageSelect* settingsPageSelect = ExpSection::GetSection()->GetPulPage<SettingsPageSelect>();
+    //both pages must exist in this section, else the save/back navigation branches to a null page
+    if(settingsPanel == nullptr || settingsPageSelect == nullptr) return;
     settingsPanel->prevPageId = PAGE_NONE;
+    settingsPageSelect->prevPageId = PAGE_NONE;
     this->AddPageLayer(static_cast<PageId>(this->topSettingsPage), 0);
     this->EndStateAnimated(0, button.GetAnimationFrameSize());
 }
