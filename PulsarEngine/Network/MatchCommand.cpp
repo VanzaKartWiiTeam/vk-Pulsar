@@ -59,7 +59,7 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
         }
         else if(roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
             if(packet->pulInfo.statusData != mgr.ownStatusData) {
-                           pid, (int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
+                           pid, ((int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
                 denyType = DENY_TYPE_OTT;
                 type = DWC::MATCH_COMMAND_RESV_DENY;
             }

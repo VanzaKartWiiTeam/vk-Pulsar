@@ -28,12 +28,14 @@ public:
 private:
     void RandomizeComboVR(PushButton& button, u32 hudSlotId);
     void ChangeCombo(PushButton& button, u32 hudSlotId);
+    void OnSettingsButtonClick(PushButton& button, u32 hudSlotId);
     PtmfHolder_2A<ExpVR, void, PushButton&, u32> onRandomComboClick; //0x192c
     PtmfHolder_2A<ExpVR, void, PushButton&, u32> onChangeComboClick;
     PushButton randomComboButton;
     PushButton changeComboButton;
 public:
     u8 comboButtonState; //1 = randomize, 2 = change
+    PulPageId topSettingsPage;
 };
 
 class ExpCharacterSelect : public Pages::CharacterSelect {

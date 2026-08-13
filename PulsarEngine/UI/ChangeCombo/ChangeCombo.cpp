@@ -2,8 +2,10 @@
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
 #include <UI/ChangeCombo/ChangeCombo.hpp>
+#include <Settings/UI/SettingsPanel.hpp>
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
+#include <Settings/UI/SettingsPageSelect.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -38,6 +40,8 @@ void ExpVR::OnInit() {
     this->changeComboButton.Load(UI::buttonFolder, "PULiMemberConfirmButton", "Change", 1, 0, isKOd);
     this->changeComboButton.SetOnClickHandler(this->onChangeComboClick, 0);
     this->changeComboButton.manipulator.SetAction(START_PRESS, this->changeComboButton.onClickHandlerObj, 0);
+
+    this->topSettingsPage = SettingsPageSelect::id;
 
     const Section* section = SectionMgr::sInstance->curSection;
 
@@ -126,8 +130,16 @@ void ExpVR::ChangeCombo(PushButton& changeComboButton, u32 hudSlotId) {
     this->comboButtonState = 2;
     this->EndStateAnimated(0, changeComboButton.GetAnimationFrameSize());
 }
+void ExpVR::OnSettingsButtonClick(PushButton& button, u32 hudSlotId) {
+    SettingsPanel* settingsPanel = ExpSection::GetSection()->GetPulPage<SettingsPanel>();
+    settingsPanel->prevPageId = PAGE_NONE;
+    SettingsPageSelect* settingsPageSelect = ExpSection::GetSection()->GetPulPage<SettingsPageSelect>();
+    settingsPageSelect->prevPageId = PAGE_NONE;
+    this->AddPageLayer(static_cast<PageId>(this->topSettingsPage), 0);
+}
 
 static void AddChangeComboPages(Section* section, PageId id) {
+    section->CreateAndInitPage(static_cast<PageId>(SettingsPanel::id));
     section->CreateAndInitPage(id);
     section->CreateAndInitPage(PAGE_CHARACTER_SELECT);
     bool isBattle = IsBattle();

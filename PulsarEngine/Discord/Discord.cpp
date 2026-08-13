@@ -262,6 +262,16 @@ void DiscordRichPresence(Section* _this) {
                 snprintf(smallImageText, 32, "Mii (Outfit B)");
                 break;
 
+            case MII_L_C_MALE:
+            case MII_L_C_FEMALE:
+            case MII_M_C_MALE:
+            case MII_M_C_FEMALE:
+            case MII_S_C_MALE:
+            case MII_S_C_FEMALE:
+                snprintf(smallImageKey, 32, "mii_c");
+                snprintf(smallImageText, 32, "Mii (Outfit C)");
+                break;
+
         }
     }
 

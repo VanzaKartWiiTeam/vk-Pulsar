@@ -44,6 +44,7 @@ public:
     UIControl* CreateControl(u32 id) override; //0x88
     void SetButtonHandlers(PushButton& pushButton) override; //80853aac 0x8C
     void OnBackPress(u32 hudSlotId);
+    void BeforeControlUpdate() override;
 
 private:
     void UpdateText();
@@ -88,10 +89,11 @@ private:
     u8 radioSettings[Settings::Params::pageCount][Settings::Params::maxRadioCount];
     u8 scrollerSettings[Settings::Params::pageCount][Settings::Params::maxScrollerCount];
 
-    u32 bmgOffset;
+    
 public:
     u32 sheetIdx; //0x750
     u32 catIdx; //pulsarIdx or userIdx depending on the page
+    u32 bmgOffset;
 };
 
 }//namespace UI

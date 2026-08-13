@@ -1341,7 +1341,7 @@ static bool ModsRootExists() {
         // Disc FST lookup is preferred; SD probing is only the fallback path.
         sModsRootPresent = ModsRootExistsOnSD();
         IO* io = IO::sInstance;
-                   (io != nullptr) ? (int)io->type : -1, (int)ShouldProbeSDModsPath(), (int)sModsRootPresent);
+                   ((io != nullptr) ? (int)io->type : -1, (int)ShouldProbeSDModsPath(), (int)sModsRootPresent);
     }
     return sModsRootPresent;
 }

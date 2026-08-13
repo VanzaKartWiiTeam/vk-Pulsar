@@ -2,6 +2,7 @@
 #include <core/rvl/os/OS.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <Settings/UI/ExpWFCMainPage.hpp>
+#include <Settings/UI/SettingsPageSelect.hpp>
 #include <UI/UI.hpp>
 #include <UI/PlayerCount.hpp>
 #include <Network/Rating/PlayerRating.hpp>
@@ -62,7 +63,7 @@ void ExpWFCMain::OnInit() {
     this->rankInfo.SetPosition(0.0f);
     this->rankInfo.isHidden = false;
 
-    this->topSettingsPage = SettingsPanel::id;
+      this->topSettingsPage = SettingsPageSelect::id;  // Navigate to page selection first
 }
 
 void ExpWFCMain::BeforeControlUpdate() {
@@ -111,6 +112,8 @@ void ExpWFCMain::BeforeControlUpdate() {
 }
 
 void ExpWFCMain::OnSettingsButtonClick(PushButton& pushButton, u32 r5) {
+    // Set up SettingsPageSelect's and SettingsPanel's previous page
+    ExpSection::GetSection()->GetPulPage<SettingsPageSelect>()->prevPageId = PAGE_WFC_MAIN;
     ExpSection::GetSection()->GetPulPage<SettingsPanel>()->prevPageId = PAGE_WFC_MAIN;
     this->nextPageId = static_cast<PageId>(this->topSettingsPage);
     this->EndStateAnimated(0, pushButton.GetAnimationFrameSize());
