@@ -8,6 +8,7 @@
 #include <MarioKartWii/UI/Page/Menu/VSSettings.hpp>
 #include <Settings/SettingsParam.hpp>
 #include <UI/UI.hpp>
+#include <MarioKartWii/UI/Ctrl/CountDown.hpp>
 
 /*SettingsPanel which has (currently) 3 pages for menu, race and host settings
 Inspired by VSRaceSettings but does not extend it as I wanted a custom amount of radioControls/scrollers depending on the page
@@ -94,6 +95,14 @@ public:
     u32 sheetIdx; //0x750
     u32 catIdx; //pulsarIdx or userIdx depending on the page
     u32 bmgOffset;
+    CountDown* timer;  // Add this member
+    s32 rouletteCounter;
+    CountDownTimerControl countdownControl;
+
+    bool ShouldHideScrollers() const;
+
+    int frameCounter;
+    CountDown countdown;
 };
 
 }//namespace UI

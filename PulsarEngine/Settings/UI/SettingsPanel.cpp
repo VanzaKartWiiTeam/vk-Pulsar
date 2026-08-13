@@ -7,6 +7,9 @@
 #include <SlotExpansion/CupsConfig.hpp>
 #include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
 #include <VanzaKart.hpp>
+#include <UI/ChangeCombo/ChangeCombo.hpp>
+#include <Network/PacketExpansion.hpp>
+#include <MarioKartWii/UI/Ctrl/CountDown.hpp>
 
 extern "C" void OSReport(const char* format, ...);
 
@@ -103,7 +106,7 @@ void SettingsPanel::OnInit() {
     }
     MenuInteractable::OnInit();
     this->SetTransitionSound(0, 0);
-};
+}
 
 UIControl* SettingsPanel::CreateExternalControl(u32 id) {
     const char* variant = "SAVE";
@@ -175,6 +178,10 @@ void SettingsPanel::OnActivate() {
     this->titleBmg = this->bmgOffset + BMG_SETTINGS_TITLE + this->catIdx;
     this->externControls[0]->SelectInitial(0);
     this->bottomText->SetMessage(BMG_SETTINGS_BOTTOM); //no need for any offset here as this is the default "save" bottom msg
+    // Check if we're in any of the voting sections
+    SectionId id = SectionMgr::sInstance->curSection->sectionId;
+    bool isVotingSection = (id >= SECTION_P1_WIFI_FROOM_VS_VOTING && id <= SECTION_P2_WIFI_FROOM_COIN_VOTING) 
+    || (id == SECTION_P1_WIFI_VS_VOTING);
 
     for(int i = 0; i < Settings::Params::maxRadioCount; ++i) {
         RadioButtonControl& radio = this->radioButtonControls[i];
@@ -221,15 +228,41 @@ void SettingsPanel::OnActivate() {
     MenuInteractable::OnActivate();
 
         // Hide specific settings pages in voting sections
-    /*if (isVotingSection) {
-        if (this->sheetIdx == Settings::SETTINGSTYPE_KO ||
+    if(isVotingSection) {
+        if (this->sheetIdx == Settings::SETTINGSTYPE_KO || 
             this->sheetIdx == Settings::SETTINGSTYPE_OTT ||
-            this->sheetIdx == Settings::SETTINGSTYPE_FROOM1 ||
-            this->sheetIdx == Settings::SETTINGSTYPE_FROOM2 ||
-            this->sheetIdx == Settings::SETTINGSTYPE_EXTENDEDTEAMS ||
-            this->sheetIdx == Settings::SETTINGSTYPE_MISC) {
+            this->sheetIdx == Settings::SETTINGSTYPE_HOST ||
+            this->sheetIdx == Settings::SETTINGSTYPE_LANGUAGE ||
+            this->sheetIdx == Settings::SETTINGSTYPE_EXTENDEDTEAMS) {
             return;
-        }*/
+        }
+    }
+
+    // Hide/show scroller controls based on section
+    for(int i = 0; i < Settings::Params::maxScrollerCount; ++i) {
+        UpDownControl& upDown = this->upDownControls[i];
+        TextUpDownValueControl& text = this->textUpDown[i];
+        
+        if(isVotingSection) {
+            // Hide scrollers and make them completely inaccessible
+            upDown.isHidden = true;
+            upDown.manipulator.inaccessible = true;
+            text.isHidden = true;
+        } else {
+            bool isDisabled = i >= Settings::Params::scrollerCount[this->sheetIdx];
+            upDown.isHidden = isDisabled;
+            upDown.manipulator.inaccessible = isDisabled;
+            text.isHidden = isDisabled;
+        }
+    }
+
+    // Make sure radio buttons remain accessible
+    for(int i = 0; i < Settings::Params::maxRadioCount; ++i) {
+        RadioButtonControl& radio = this->radioButtonControls[i];
+        bool isDisabled = i >= Settings::Params::radioCount[this->sheetIdx];
+        radio.isHidden = isDisabled;
+        radio.manipulator.inaccessible = isDisabled;
+    }
 }
 
 const ut::detail::RuntimeTypeInfo* SettingsPanel::GetRuntimeTypeInfo() const {
@@ -323,7 +356,7 @@ void SettingsPanel::OnButtonClick(PushButton& button, u32 direction) {
         this->bmgOffset = 0;
     }
     else {
-        this->catIdx = nextIdx - Settings::Params::pulsarPageCount; //5 becomes 0 if pulsarPageCount is 5
+        this->catIdx = nextIdx - Settings::Params::pulsarPageCount;
         this->bmgOffset = BMG_USERSETTINGSOFFSET;
     }
 

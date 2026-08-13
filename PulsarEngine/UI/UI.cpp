@@ -74,14 +74,15 @@ void ExpSection::CreatePulPages() {
                 this->CreateAndInitPage(*this, PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR);
             }
             break;
-            //case SECTION_P1_WIFI_FROOM_VS_VOTING:      //0x60
-            //case SECTION_P1_WIFI_FROOM_TEAMVS_VOTING:  //0x61
-            //case SECTION_P1_WIFI_FROOM_BALLOON_VOTING: //0x62
-            //case SECTION_P1_WIFI_FROOM_COIN_VOTING:    //0x63
-            //case SECTION_P2_WIFI_FROOM_VS_VOTING:      //0x64
-            //case SECTION_P2_WIFI_FROOM_TEAMVS_VOTING:  //0x65
-            //case SECTION_P2_WIFI_FROOM_BALLOON_VOTING: //0x66
-            //case SECTION_P2_WIFI_FROOM_COIN_VOTING:    //0x67
+            case SECTION_P1_WIFI_FROOM_VS_VOTING:      //0x60
+            case SECTION_P1_WIFI_FROOM_TEAMVS_VOTING:  //0x61
+            case SECTION_P1_WIFI_FROOM_BALLOON_VOTING: //0x62
+            case SECTION_P1_WIFI_FROOM_COIN_VOTING:    //0x63
+            case SECTION_P2_WIFI_FROOM_VS_VOTING:      //0x64
+            case SECTION_P2_WIFI_FROOM_TEAMVS_VOTING:  //0x65
+            case SECTION_P2_WIFI_FROOM_BALLOON_VOTING: //0x66
+            case SECTION_P2_WIFI_FROOM_COIN_VOTING:    //0x67
+            this->CreateAndInitPage(*this, SettingsPanel::id);
 
         case SECTION_P1_WIFI_VS: //0x68
         case SECTION_P2_WIFI_VS: //0x69
@@ -129,6 +130,7 @@ void ExpSection::CreatePulPages() {
         case SECTION_P2_WIFI:                    //0x5b
         case SECTION_P2_WIFI_FROM_FROOM_RACE:    //0x5c
         case SECTION_OPTIONS:                    //0x8c
+        case SECTION_P1_WIFI_VS_VOTING:          //0x60
             this->CreateAndInitPage(*this, SettingsPanel::id);
             this->CreateAndInitPage(*this, SettingsPageSelect::id);
     }

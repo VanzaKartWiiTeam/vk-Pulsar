@@ -1725,8 +1725,8 @@ OnInit__Q25Pages14SELECTStageMgrFv = 0x8064fcfc
 OnDispose__Q25Pages14SELECTStageMgrFv = 0x8064fe30
 OnActivate__Q25Pages14SELECTStageMgrFv = 0x8064fe34
 OnDeactivate__Q25Pages14SELECTStageMgrFv = 0x80650214
-BeforeControlUpdate__Q25Pages14SELECTStageMgrFv = 0x80650218
 AfterControlUpdate__Q25Pages14SELECTStageMgrFv = 0x80650274
+BeforeControlUpdate__Q25Pages14SELECTStageMgrFv = 0x80650218
 PrepareRace__Q25Pages14SELECTStageMgrFv = 0x80650e24
 UpdateOnlineParams__Q25Pages14SELECTStageMgrFv = 0x806515cc
 SetModeTypes__Q25Pages14SELECTStageMgrFv = 0x80651854
@@ -2387,6 +2387,14 @@ GetCameraParamBin__Q24Kart4LinkFUiUi = 0x805927d4
 mbstowcs = 0x8000f078
 Init__16RacedataScenarioFPC16RacedataScenario = 0x8052fb90
 Update__Q25RKNet9PacketMgrFv = 0x80653728
+
+GetCurrentContext__2OSFv = 0x801a1ecc
+
+OnButtonClick__Q25Pages2VRFR10PushButtonUi = 0x8064ae6c
+HandleDeselect__18RadioButtonControlFUiUi = 0x80606434
+HandleSelect__18RadioButtonControlFUiUi = 0x806062d8
+HandleClick__18RadioButtonControlFUiUi = 0x80606620
+HandleDeselect__13UpDownControlFUiUi = 0x8063f7c4
 
 #SC 
 SCGetProductSN = 0x801b2460

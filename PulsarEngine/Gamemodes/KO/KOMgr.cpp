@@ -228,7 +228,11 @@ void Mgr::ProcessKOs(Pages::GPVSLeaderboardUpdate::Player* playerArr, size_t nit
             if (self->IsKOdPlayerId(playerId)) {
                 continue;
             }
-
+            
+            // Check if player is already knocked out
+            if (self->IsKOdPlayerId(playerId)) {
+                continue;
+            }
             self->SetKOd(playerId);
         }
     }
