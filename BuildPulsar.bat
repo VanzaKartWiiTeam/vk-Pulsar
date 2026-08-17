@@ -19,18 +19,15 @@ SET "PULSAR=.\PulsarEngine"
 :: Change this as necessary depending on where you put CodeWarrior
 SET "CC="C:\Program Files (x86)\Freescale\CW for MPC55xx and MPC56xx 2.10\PowerPC_EABI_Tools\Command_Line_Tools\mwcceppc.exe""
 
-SET "RIIVO_C=C:\Users\brutt\Desktop\Dolphin-x64\User\Load\Riivolution\VanzaKart\VanzaKart"
-SET "RIIVO_E=E:\Dolphin-x64\User\Load\Riivolution\VanzaKart\VanzaKart"
-
-if %ErrorLevel% equ 0 (
-    if not exist "%RIIVO_C%\Binaries" mkdir "%RIIVO_C%\Binaries"
-    xcopy /Y build\*.pul "%RIIVO_C%\Binaries" /i /q
-    if not exist "%RIIVO_E%\Binaries" mkdir "%RIIVO_E%\Binaries"
-    xcopy /Y build\*.pul "%RIIVO_E%\Binaries" /i /q
-    echo Binaries copied to both C: and E: Riivolution folders
-)
+:: Where the built Code.pul is deployed. The copy happens at the end of this script, after the
+:: link: doing it up here deployed the *previous* build every time.
+SET "RIIVO=E:\Dolphin-x64\User\Load\Riivolution\VanzaKart\VanzaKart"
 
 :: Compiler flags and folder
+:: NB: niente -proc gekko qui, a differenza di rr-pulsar: la licenza di questa edizione di
+:: CodeWarrior (MPC55xx/56xx) rifiuta quel processore. Verificato che il codice generato e'
+:: comunque identico per tipo a quello della build del creatore (stesse istruzioni FP classiche,
+:: nessuna istruzione illegale sul 750CL), quindi il target generico non e' un problema.
 SET CFLAGS=-I- -i %ENGINE% -i %GAMESOURCE% -i %PULSAR% ^
   -opt all -inline auto -enum int -fp hard -sdata 0 -sdata2 0 -maxerrors 1 -func_align 4 %cwDWARF%
 :: Pass -prod to build a release: this is what enables the WiiLink codehandler
@@ -71,9 +68,16 @@ for /R %PULSAR% %%H in (*.cpp) do (
 echo Linking... %time%
 ".\KamekLinker\Kamek.exe" "build/kamek.o" "build/RuntimeWrite.o" %OBJECTS% %debug% -dynamic -externals="%GAMESOURCE%/symbols.txt" -versions="%GAMESOURCE%/versions.txt" -output-combined=build\Code.pul -output-map=build\Code.$KV$.map
 
-if %ErrorLevel% equ 0 if NOT "!RIIVO!" == "" (
-    xcopy /Y build\*.pul "%RIIVO%\Binaries" /i /q
-    echo Binaries copied
+if %ErrorLevel% neq 0 (
+    echo Linking failed, nothing was deployed
+    pause
+    exit /b %ErrorLevel%
+)
+
+if NOT "!RIIVO!" == "" (
+    if not exist "!RIIVO!\Binaries" mkdir "!RIIVO!\Binaries"
+    xcopy /Y build\*.pul "!RIIVO!\Binaries" /i /q
+    echo Binaries copied to !RIIVO!\Binaries
 )
 
 :end

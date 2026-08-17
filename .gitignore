@@ -10,6 +10,7 @@ BuildCode.bat
 /.vscode
 */.vscode
 /.vs
+/.claude
 /PulsarPackCreator/bin
 /PulsarPackCreator/obj
 /PulsarPackCreator/.vs
