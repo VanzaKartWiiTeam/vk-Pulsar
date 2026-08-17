@@ -261,20 +261,40 @@ void System::UpdateContext() {
                     const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED);
                     const u8 koFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
                     const bool isLocalExtendedTeams = settings.GetUserSettingValue(Settings::SETTINGSTYPE_EXTENDEDTEAMS, RADIO_EXTENDEDTEAMSENABLED) == EXTENDEDTEAMS_ENABLED;
+                    /*
+                        Every term below has to carry the same mogi guard PulROOM puts in the
+                        packet. This is a rebuild from the host's own settings, so anything left
+                        ungated came back the moment the scene changed: the clients kept the room
+                        the host had announced while the host itself drifted back to its settings.
+                    */
+                    const bool isMogi = (this->context & (1 << PULSAR_STARTMOGI)) != 0;
 
-                    newContext = (ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT
+                    newContext = (!isMogi && ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT
                         | (ottOnline == OTTSETTING_ONLINE_FEATHER) << PULSAR_FEATHER
                         | (settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS) ^ true) << PULSAR_UMTS
-                        | koSetting << PULSAR_MODE_KO
+                        | (!isMogi && koSetting) << PULSAR_MODE_KO
                         | koFinal << PULSAR_KOFINAL
-                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
-                        | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW
-                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
-                        | isLocalExtendedTeams << PULSAR_EXTENDEDTEAMS
+                        | (!isMogi && (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true)) << PULSAR_MIIHEADS
+                        | (!isMogi && settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS)) << PULSAR_HAW
+                        | (isMogi || settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_THUNDERCLOUD) == THUNDERCLOUD_NORMAL) << PULSAR_THUNDERCLOUD
+                        | (!isMogi && isLocalExtendedTeams) << PULSAR_EXTENDEDTEAMS
                         //Same term PulROOM puts in the packet, so the host's own context matches
                         //what its clients receive.
-                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_ITEMRAIN) << PULSAR_ITEMMODERAIN
-                        | (settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_COUNTDOWN) << PULSAR_MODE_COUNTDOWN;
+                        | (!isMogi && settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_ITEMRAIN) << PULSAR_ITEMMODERAIN
+                        | (!isMogi && settings.GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_SCROLL_ITEMMODE) == RACESETTING_ITEMMODE_COUNTDOWN) << PULSAR_MODE_COUNTDOWN;
+                    /*
+                        A mogi is decided once, when the room starts: PulROOM writes the bit into
+                        the ROOM packet and SetContext applies it. The host rebuilds its context
+                        from its own settings at every scene change and none of the terms above
+                        produce that bit, so without carrying it over the host lost the mogi after
+                        the first race while the clients, which read hostContext, kept it - and
+                        the 150cc lock in DecideCC, which only the host runs, went with it.
+
+                        Only this bit. The three worldwide-start ones must stay one-shot: the froom
+                        to worldwide conversion clears the context on purpose once it has used them.
+                    */
+                    newContext |= this->context & (1 << PULSAR_STARTMOGI);
+
                     netMgr.hostContext = newContext;
                     OSReport("[Pulsar LOG] UpdateContext: Host compiled newContext=0x%08X (localTeams=%d)\n", newContext, isLocalExtendedTeams);
                 } else {

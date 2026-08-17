@@ -44,11 +44,9 @@ static void LogCtrlLoad(void* loader, const char* folder, const char* brctr, con
     inControlLoad = false;
 
     if(scene == nullptr) {
-        OS::Report("[VK RADIO] #%u %s: GameScene::GetCurrent() is NULL\n", loadIndex++, variant);
         return;
     }
     const u32 structs2After = Allocatable(structsMem2);
-    OS::Report("[VK RADIO] #%u %s/%s %s | anim ok=%u ko=%u | structMEM2 %u -> %u (-%d) structMEM1=%u archMEM1=%u archMEM2=%u\n",
         loadIndex++, folder, brctr, variant, animOk, animFailed,
         structs2Before, structs2After, static_cast<int>(structs2Before - structs2After),
         Allocatable(scene->structsMem1),
@@ -74,19 +72,16 @@ static void* LogGetAnimGroup(const void* animator, u32 id) {
     void* group = realGetAnimGroup(animator, id);
     const u8* const groupsArray = *reinterpret_cast<const u8* const*>(animator);
     if(groupsArray == nullptr) {
-        OS::Report("[VK RADIO] %s: group array is NULL\n", lastVariant);
         return group;
     }
     const u8* const anims = *reinterpret_cast<const u8* const*>(group);
     if(anims != nullptr && *reinterpret_cast<const u32*>(anims) != 0) return group;
 
-    OS::Report("[VK RADIO] %s: group %u broken, animator=%08x groups=%08x group=%08x\n",
         lastVariant, id, reinterpret_cast<u32>(animator),
         reinterpret_cast<u32>(groupsArray), reinterpret_cast<u32>(group));
     for(u32 i = 0; i <= id; ++i) {
         const u8* const g = groupsArray + i * 0x44;
         const u8* const gAnims = *reinterpret_cast<const u8* const*>(g);
-        OS::Report("[VK RADIO]   group%u anims=%08x anims[0]=%08x\n",
             i, reinterpret_cast<u32>(gAnims),
             gAnims == nullptr ? 0 : *reinterpret_cast<const u32*>(gAnims));
     }
