@@ -20,8 +20,21 @@ namespace UI {
 PageId TTSplitsGetNextPage(const Pages::TTSplits& splits) {
     const bool isOTT = System::sInstance->IsContext(PULSAR_MODE_OTT);
 
-    const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
-    if(isOTT || sectionId == SECTION_GP) return PAGE_GPVS_LEADERBOARD_UPDATE;
+    const Section* section = SectionMgr::sInstance->curSection;
+    const SectionId sectionId = section->sectionId;
+    if(isOTT || sectionId == SECTION_GP) {
+        /*
+            OTT replaces the race HUD's next page with the splits page, so the splits page is
+            what asks for the leaderboard once the race ends. Which leaderboard exists depends
+            on the section: a public/regional room (SECTION_P1_WIFI_VS) only ever creates the
+            worldwide one, so asking it for the GP/VS leaderboard handed Section::AddPageLayer
+            a null page and took the game down with a DSI - that was the OTT WW crash.
+            Friend rooms and GPs still have the GP/VS page, so prefer it and fall back.
+        */
+        if(section->pages[PAGE_GPVS_LEADERBOARD_UPDATE] == nullptr
+            && section->pages[PAGE_WW_LEADERBOARDS_UPDATE] != nullptr) return PAGE_WW_LEADERBOARDS_UPDATE;
+        return PAGE_GPVS_LEADERBOARD_UPDATE;
+    }
     else if(sectionId == SECTION_TT || sectionId == SECTION_GHOST_RACE_1 || sectionId == SECTION_GHOST_RACE_2) return PAGE_TT_LEADERBOARDS;
     else if(sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU) return PAGE_GHOST_REPLAY_PAUSE_MENU; //Enhanced Replay
     return PAGE_NONE;

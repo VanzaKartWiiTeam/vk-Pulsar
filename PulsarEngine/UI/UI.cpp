@@ -286,6 +286,14 @@ Page* ExpSection::AddPageLayerAnimatedReturnTopLayer(ExpSection& self, u32 id, u
     }
     else page = self.pulPages[id - PULPAGE_INITIAL];
 
+    /*
+        A page that the current section never created is null here, and both the write below
+        and Activate() then fault at a null pointer, killing the game. Refusing the layer keeps
+        the section on the page it is already showing, which is survivable; whoever asked for
+        the missing page is the actual bug and gets fixed at the call site.
+    */
+    if(page == nullptr) return nullptr;
+
     self.activePages[++self.layerCount] = page;
     if(animDirection != 0xffffffff) page->animationDirection = animDirection; //inlined Page::SetAnimDirection
     page->Activate();
