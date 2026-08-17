@@ -336,6 +336,7 @@ static void DecideCC(ExpSELECTHandler& handler) {
         const u8 ccSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_CC);
         RKNet::Controller* controller = RKNet::Controller::sInstance;
         const RKNet::RoomType roomType = controller->roomType;
+        const bool isRegional = IsRegionalRoom(roomType);
         u8 ccClass = 1; //1 100, 2 150, 3 mirror
         if (roomType == RKNet::ROOMTYPE_VS_REGIONAL
             || roomType == RKNet::ROOMTYPE_FROOM_HOST && ccSetting == HOSTSETTING_CC_NORMAL) {
@@ -349,6 +350,20 @@ static void DecideCC(ExpSELECTHandler& handler) {
         }
         else if (ccSetting == HOSTSETTING_CC_150) ccClass = 2;
         else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
+        /*
+            The engine class is what turns 200cc on: Pulsar reads the 100cc slot as 200cc
+            (see PULSAR_200 in UpdateContext, which every 200cc patch keys off). Only the host
+            runs this, and the class it picks travels in the SELECT packet, so forcing it here
+            is what keeps the whole room in the same class.
+
+            The 200cc worldwide has to be 200cc every race, and the other worldwides must never
+            roll into it by chance - the class rolled above uses the pack's 100cc probability,
+            which is meant for friend rooms.
+        */
+        if (isRegional) {
+            if (REGIONID == REGION_200CC) ccClass = 1;
+            else if (ccClass == 1) ccClass = 2;
+        }
         handler.toSendPacket.engineClass = ccClass;
     }
     Network::ReportU32("wl:mkw_select_cc", handler.toSendPacket.engineClass);

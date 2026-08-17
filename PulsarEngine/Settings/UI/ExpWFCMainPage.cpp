@@ -7,11 +7,9 @@
 #include <UI/PlayerCount.hpp>
 #include <Network/Rating/PlayerRating.hpp>
 #include <Network/Rating/RankManager.hpp>
+#include <Network/Network.hpp>
 
 namespace Pulsar {
-namespace Network {
-    extern u32 REGIONID;
-}
 namespace UI {
 //EXPANDED WFC, keeping WW button and just hiding it in case it is ever needed...
 
@@ -359,12 +357,14 @@ void ExpWFCModeSel::OnModeButtonClick(PushButton& modeButton, u32 hudSlotId) {
             this->vsButton.SelectInitial(0);
         }
     } else if (this->submenuState == STATE_VS_WW) {
+        // The region picked here is the whole mode selection: it decides which pool the search
+        // runs in and, once in the room, which contexts UpdateContext turns on.
         if (clickedId == 1) {
             Network::REGIONID = System::sInstance->GetInfo().GetWiimmfiRegion();
             System::sInstance->netMgr.ownStatusData = false;
             WFCModeSelect::OnModeButtonClick(modeButton, hudSlotId);
         } else {
-            Network::REGIONID = 0x70;
+            Network::REGIONID = Network::REGION_200CC;
             System::sInstance->netMgr.ownStatusData = false;
             modeButton.buttonId = 1;
             WFCModeSelect::OnModeButtonClick(modeButton, hudSlotId);
@@ -372,13 +372,13 @@ void ExpWFCModeSel::OnModeButtonClick(PushButton& modeButton, u32 hudSlotId) {
         }
     } else if (this->submenuState == STATE_OTHER_VS) {
         if (clickedId == 1) {
-            Network::REGIONID = 0x69;
+            Network::REGIONID = Network::REGION_OTT;
             System::sInstance->netMgr.ownStatusData = true;
             modeButton.buttonId = 1;
             WFCModeSelect::OnModeButtonClick(modeButton, hudSlotId);
             modeButton.buttonId = clickedId;
         } else {
-            Network::REGIONID = 0x71;
+            Network::REGIONID = Network::REGION_ITEMRAIN;
             System::sInstance->netMgr.ownStatusData = false;
             modeButton.buttonId = 1;
             WFCModeSelect::OnModeButtonClick(modeButton, hudSlotId);

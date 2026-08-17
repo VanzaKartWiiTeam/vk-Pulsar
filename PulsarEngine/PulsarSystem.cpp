@@ -17,10 +17,6 @@
 #include <Debug/Debug.hpp>
 namespace Pulsar {
 
-namespace Network {
-    extern u32 REGIONID;
-}
-
 System* System::sInstance = nullptr;
 System::Inherit* System::inherit = nullptr;
 
@@ -309,12 +305,21 @@ void System::UpdateContext() {
             }
             default: isCT = true;
         }
+        /*
+            In a public room the mode is not in any packet: it is the region the player
+            matchmade in, and after Region.cpp started publishing REGIONID in the "rk" key
+            everyone in the room is guaranteed to have picked the same one. 200cc is missing
+            on purpose - it rides on the engine class the host puts in the SELECT packet
+            (see DecideCC), which is what PULSAR_200 is derived from just above.
+        */
         if (isRegionalRoom) {
-            const u32 region = Network::REGIONID;
-            if (region == 0x69) {
-                isOTT = true;
-            } else if (region == 0x71) {
-                isItemRainActive = true;
+            switch (Network::REGIONID) {
+                case Network::REGION_OTT:
+                    isOTT = true;
+                    break;
+                case Network::REGION_ITEMRAIN:
+                    isItemRainActive = true;
+                    break;
             }
         }
     }

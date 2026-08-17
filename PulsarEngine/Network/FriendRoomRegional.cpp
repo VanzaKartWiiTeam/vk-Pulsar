@@ -14,25 +14,30 @@
 namespace Pulsar {
 namespace Network {
 
-u32 REGIONID = 0x68;
+u32 REGIONID = REGION_VS;
 extern void ResetTrackBlockingOnRoomEnd();
 
 static void SetRegionId() {
     System* system = System::sInstance;
     if (system == nullptr) return;
     if (system->IsContext(PULSAR_STARTVKWW))
-        REGIONID = 0x68;
+        REGIONID = REGION_VS;
     else if (system->IsContext(PULSAR_STARTOTTWW))
-        REGIONID = 0x69;
+        REGIONID = REGION_OTT;
     else if (system->IsContext(PULSAR_STARTITEMRAIN))
-        REGIONID = 0x71;
+        REGIONID = REGION_ITEMRAIN;
     else {
+        /*
+            Outside of a froom-started worldwide, follow whatever region the controller is in
+            (that is how joining a friend in another region works). A mode region must not be
+            overwritten this way: it is picked in the WFC menu, several sections before the
+            controller knows about it, so adopting the controller's stale region here would
+            silently drop the player back into plain VS. 200cc used to be missing from this
+            guard, which is why it was the one mode that never got its own rooms.
+        */
         RKNet::Controller* controller = RKNet::Controller::sInstance;
-        if (controller != nullptr) {
-            u8 curRegion = controller->localStatusData.regionId;
-            if (REGIONID != 0x69 && REGIONID != 0x71) {
-                REGIONID = curRegion;
-            }
+        if (controller != nullptr && !IsModeRegion(REGIONID)) {
+            REGIONID = controller->localStatusData.regionId;
         }
     }
 }

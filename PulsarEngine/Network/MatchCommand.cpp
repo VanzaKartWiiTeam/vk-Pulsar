@@ -58,8 +58,11 @@ DWC::MatchCommand Process(DWC::MatchCommand type, const void* data, u32 dataSize
             type = DWC::MATCH_COMMAND_RESV_DENY;
         }
         else if(roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
+            //Last line of defence against an OTT player landing in a normal room or the other
+            //way round; the search key built in Region.cpp is what keeps the modes apart.
             if(packet->pulInfo.statusData != mgr.ownStatusData) {
-                           pid, ((int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
+                OS::Report("[VK RESV] deny pid=%u reason=MODE statusData=%d/%d\n",
+                           pid, (int)packet->pulInfo.statusData, (int)mgr.ownStatusData);
                 denyType = DENY_TYPE_OTT;
                 type = DWC::MATCH_COMMAND_RESV_DENY;
             }

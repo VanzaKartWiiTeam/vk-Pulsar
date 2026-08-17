@@ -156,13 +156,14 @@ void sbCallback(ServerBrowser sb, SBCallbackReason reason, SBServer server, void
 
             int numplayers = SBServerGetIntValueA(server, "numplayers", -1) + 1;
             if (strstr(region, "vs")) {
+                // These are the regions Region.cpp writes into "rk", one per worldwide mode.
                 if (regionID == wwRegion) {
                     VK_localVS += numplayers;
-                } else if (regionID == 0x70) {
+                } else if (regionID == Pulsar::Network::REGION_200CC) {
                     VK_local200cc += numplayers;
-                } else if (regionID == 0x69) {
+                } else if (regionID == Pulsar::Network::REGION_OTT) {
                     VK_localOTT += numplayers;
-                } else if (regionID == 0x71) {
+                } else if (regionID == Pulsar::Network::REGION_ITEMRAIN) {
                     VK_localIR += numplayers;
                 } else {
                     numElse += numplayers;

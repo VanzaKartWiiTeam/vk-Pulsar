@@ -10,7 +10,6 @@
 
 namespace Pulsar {
 namespace Network {
-extern u32 REGIONID;
 
 static const ut::Color colors[5] = {0xffff00ff, 0x00ff00ff, 0xffa000ff, 0x00ffffff, 0x0050ffff};
 
@@ -22,7 +21,7 @@ ut::Color GetFriendColor(u32 friendIdx) {
     const RKNet::Friend* friendData = &RKNet::Controller::sInstance->friends[friendIdx];
     const u8 friendRegion = friendData->statusData.regionId;
 
-    const bool isSpecialRegion = (friendRegion == 0x69 || friendRegion == 0x70 || friendRegion == 0x71);
+    const bool isSpecialRegion = IsModeRegion(friendRegion);
 
     switch (type) {
         case RKNet::SEARCH_TYPE_VS_WW:
@@ -224,11 +223,11 @@ void GlobeMsgColor(Pages::Globe::MessageWindow& msg, u32 bmgId, Text::Info* info
     const u8 friendRegion = friendData->statusData.regionId;
 
     // Set appropriate BMG based on region
-    if (friendRegion == 0x69) {
+    if (friendRegion == REGION_OTT) {
         bmgId = UI::BMG_OTT_PLAYING;
-    } else if (friendRegion == 0x70) {
+    } else if (friendRegion == REGION_200CC) {
         bmgId = UI::BMG_200_PLAYING;
-    } else if (friendRegion == 0x71) {
+    } else if (friendRegion == REGION_ITEMRAIN) {
         bmgId = UI::BMG_ITEM_RAIN_PLAYING;
     }
 
@@ -243,13 +242,13 @@ void GlobeMsgColor(Pages::Globe::MessageWindow& msg, u32 bmgId, Text::Info* info
 kmCall(0x805e504c, GlobeMsgColor);
 
 void GlobeSearchTopMsg(CtrlMenuPageTitleText& title, u32 bmgId, Text::Info* info) {
-    if (REGIONID == 0x68)
+    if (REGIONID == REGION_VS)
         bmgId = UI::BMG_TITLE_TEXT_RT;
-    else if (REGIONID == 0x69)
+    else if (REGIONID == REGION_OTT)
         bmgId = UI::BMG_OTT_TITLE_TEXT;
-    else if (REGIONID == 0x70)
+    else if (REGIONID == REGION_200CC)
         bmgId = UI::BMG_200_TITLE_TEXT;
-    else if (REGIONID == 0x71)
+    else if (REGIONID == REGION_ITEMRAIN)
         bmgId = UI::BMG_ITEM_RAIN_TITLE_TEXT;
     else if (REGIONID == 0x78)
         bmgId = UI::BMG_TITLE_TEXT_CT;
