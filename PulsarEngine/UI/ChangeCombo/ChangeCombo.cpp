@@ -30,8 +30,20 @@ ExpVR::ExpVR() : comboButtonState(0) {
 kmWrite32(0x8064a61c, 0x60000000); //nop initControlGroup
 
 kmWrite24(0x808998b3, 'PUL'); //WifiMemberConfirmButton -> PULiMemberConfirmButton
+/*
+    Slot map of this page's control group. VR::OnInit runs right below and fills 0 to 0xE with
+    the page title, the bottom text, the OK button and the twelve vrControls - one per member of
+    the room. Everything Pulsar adds has to go above that, which is why the group is 0x12 slots
+    and the three buttons take 0xF, 0x10 and 0x11.
+
+    The settings button used to be added at slot 5, which is inside the twelve: AddControl
+    overwrote a vrControl pointer, so that member was no longer updated or drawn and Check
+    Members showed one player less than the room had. The vote screen is a different page with
+    its own controls, which is why everyone reappeared there. buttonId stays 5 - that is what
+    ExtOnButtonSelect keys off, and it has nothing to do with the slot.
+*/
 void ExpVR::OnInit() {
-    this->InitControlGroup(0x11);
+    this->InitControlGroup(0x12);
     VR::OnInit();
    
     bool hideSettings = false;
@@ -48,7 +60,7 @@ void ExpVR::OnInit() {
         }
     }
 
-    this->AddControl(5, settingsButton, 0);
+    this->AddControl(0x11, settingsButton, 0);
     this->settingsButton.Load(UI::buttonFolder, "SettingsVR", "SettingsVR", 1, 0, hideSettings);
     this->settingsButton.buttonId = 5;
     this->settingsButton.SetOnClickHandler(this->onSettingsClick, 0);
