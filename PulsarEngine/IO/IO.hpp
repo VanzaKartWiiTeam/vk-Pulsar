@@ -97,7 +97,24 @@ public:
     const IOType type;
 
 protected:
-    IO(IOType type, EGG::Heap* heap, EGG::TaskThread* taskThread) : type(type), fd(-1), heap(heap), taskThread(taskThread) {
+    /*
+        Every member is initialised here, in declaration order. A backend is built with
+        placement new on an EGG heap and that memory is not cleared: on Dolphin it happens to
+        be zeroes, on a real console it is whatever IOS and the apploader left in MEM1.
+
+        fileNames was the dangerous one. ReadFolder only assigns it inside its
+        `folder_fd >= 0 && !isBusy` branch, so a garbage isBusy skipped the read and left the
+        garbage pointer in place - and the CloseFolder right after it ran delete[] on that
+        pointer, corrupting the heap. Everything that allocated or wrote a file afterwards,
+        the save included, then died somewhere unrelated. fileSize matters too: GetFileSize
+        only computes a size when the field is negative, so garbage was returned as the size.
+
+        rr-pulsar initialises the same set (fileCount/fileNames in IO, isBusy/fd/fileSize in
+        its IOSIO), which is why it never showed this.
+    */
+    IO(IOType type, EGG::Heap* heap, EGG::TaskThread* taskThread)
+        : type(type), heap(heap), taskThread(taskThread), isBusy(false), fd(-1), fileSize(-1),
+          fileCount(0), fileNames(nullptr) {
         filePath[0] = '\0';
         folderName[0] = '\0';
     }

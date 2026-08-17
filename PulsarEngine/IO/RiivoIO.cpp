@@ -55,6 +55,18 @@ bool RiivoIO::CreateFolder(const char* path) {
 }
 
 void RiivoIO::ReadFolder(const char* path) {
+    /*
+        Drop the previous listing before anything else. If the folder below fails to open, or
+        isBusy is set, the branch that assigns fileNames never runs - and callers still read
+        fileCount/fileNames and still call CloseFolder, which would then delete[] a pointer
+        belonging to another folder. rr-pulsar's SD backend clears the same state up front.
+    */
+    if(this->fileNames != nullptr) {
+        delete[](this->fileNames);
+        this->fileNames = nullptr;
+    }
+    this->fileCount = 0;
+
     s32 riivo_fd = this->GetDevice_fd();
     this->Bind(path);
     alignas(0x20) IOS::IOCtlvRequest request[3];

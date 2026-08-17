@@ -36,7 +36,15 @@ class SDIO : public IO {
     SDIO(IOType type, EGG::Heap* heap, EGG::TaskThread* taskThread) : IO(type, heap, taskThread) {
         offset_assert(stat, st_mode, 8);
         offset_assert(file_struct, filesize, 0);
-        fileNames = nullptr;
+        /*
+            Close() hands fileData straight to the SD driver without checking that a file was
+            ever opened, and every RKSYS helper calls Close() on the failure path of OpenFile.
+            On a freshly allocated backend that struct is uninitialised heap memory, so the
+            driver would walk its open-file list through garbage. Zero it here: a cleared
+            struct reads as "not in use".
+        */
+        memset(&fileData, 0, sizeof(fileData));
+        memset(&dirData, 0, sizeof(dirData));
     }
 
     bool OpenFile(const char* path, u32 mode) override;
