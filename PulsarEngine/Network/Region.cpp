@@ -1,6 +1,9 @@
 #include <kamek.hpp>
 #include <core/rvl/DWC/DWC.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
+#include <MarioKartWii/UI/Page/Other/FriendList.hpp>
 #include <PulsarSystem.hpp>
+#include <Network/Network.hpp>
 
 namespace Pulsar {
 namespace Network {
@@ -36,6 +39,30 @@ kmCall(0x8065921c, PatchRegion);
 kmCall(0x80659270, PatchRegion);
 kmCall(0x80659734, PatchRegion);
 kmCall(0x80659788, PatchRegion);
+
+/*
+    Pressing Join on a friend has to move this console into the friend's region first. Their
+    room is published under the mode they picked, and the key built right after this - by
+    PatchRegion, in ConnectToGameServerFromGroupId - is what asks the server for it: with our
+    own region in it the room is simply not there and DWC ends the attempt with a communication
+    error (80410). Since the modes got regions of their own this is reachable from any of them;
+    before, every room in the pack shared one region, so it could not happen.
+
+    REGIONID, not just the key, because it is also what turns the room's mode on once inside
+    (the isRegionalRoom switch in UpdateContext) and what the rest of the frame reads.
+
+    Both call sites of EndStateAnimated in OnJoinButtonClick are replaced, one per branch, the
+    way rr-pulsar does it - that is where this is taken from.
+*/
+static void FriendSelectPage_joinFriend(Pages::FriendInfo* page, u32 animDir, float animLength) {
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if(controller != nullptr && page->selectedFriendIdx < 30) {
+        REGIONID = controller->friends[page->selectedFriendIdx].statusData.regionId;
+    }
+    page->EndStateAnimated(animDir, animLength);
+}
+kmCall(0x805d6754, FriendSelectPage_joinFriend);
+kmCall(0x805d686c, FriendSelectPage_joinFriend);
 
 
 //kmWrite32(0x8065a038, 0x7C050378);

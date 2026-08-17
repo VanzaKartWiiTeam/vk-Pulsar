@@ -26,20 +26,15 @@ static void SetRegionId() {
         REGIONID = REGION_OTT;
     else if (system->IsContext(PULSAR_STARTITEMRAIN))
         REGIONID = REGION_ITEMRAIN;
-    else {
-        /*
-            Outside of a froom-started worldwide, follow whatever region the controller is in
-            (that is how joining a friend in another region works). A mode region must not be
-            overwritten this way: it is picked in the WFC menu, several sections before the
-            controller knows about it, so adopting the controller's stale region here would
-            silently drop the player back into plain VS. 200cc used to be missing from this
-            guard, which is why it was the one mode that never got its own rooms.
-        */
-        RKNet::Controller* controller = RKNet::Controller::sInstance;
-        if (controller != nullptr && !IsModeRegion(REGIONID)) {
-            REGIONID = controller->localStatusData.regionId;
-        }
-    }
+    /*
+        No else on purpose. Outside of a froom-started worldwide the region is only ever set at
+        the points where the player actually decides it: the mode buttons on the WFC page, its
+        reset back to the pack's base region when that page opens, and the Join button on a
+        friend (Region.cpp). This used to adopt controller->localStatusData.regionId here, but
+        that field is only ever a delayed copy of REGIONID itself - after a mode it holds the
+        stale mode region, and section loads kept feeding it back in, which is what sent a join
+        to the wrong region. rr-pulsar keeps its live region explicit in the same way.
+    */
 }
 static SectionLoadHook setRegionIdHook(SetRegionId);
 

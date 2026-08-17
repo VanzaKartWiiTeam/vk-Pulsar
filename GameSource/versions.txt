@@ -318,6 +318,14 @@
 808c069c-808C06FF: -0x66b0
 808cb550-808cb553: -0x5508
 808CB700-808CB70F: -0x5508
+#Item::ObjBomb data (vtables and the update ptmfs around them). Without this the pack's bomb
+#hook kept the PAL address on NTSC-U - AddressMapper.Remap returns the input unchanged when
+#nothing covers it - read whatever the American build has there and stored it as the object's
+#update function pointer, so the next bomb collision branched to it and killed the game.
+#Verified against RMCE StaticR.rel: the relocations of ObjBomb::ObjBomb and ObjBomb::CreateArray
+#point at 0x808cd474 where PAL points at 0x808d1bdc, and 808d1b14/808d1cd4/808d1ce0 shift by the
+#same -0x4768.
+808d1b14-808d1ce3: -0x4768
 808d1dd0-808d1e2b: -0x3a98
 808d30d8-808d324f: -0x4908
 808d3698-808d369b: +0x1ab0
