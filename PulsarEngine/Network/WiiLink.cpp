@@ -189,7 +189,7 @@ kmBranchDefCpp(
     }
     saltHex[SHA256_DIGEST_SIZE * 2] = 0;
 
-#ifdef PROD
+
     // "Anticheat"
     // Check for the presence of the gecko codehandler, and halt online connections if it is found
     if (*(u32 *)0x80001920 != 0x0) {
@@ -202,7 +202,7 @@ kmBranchDefCpp(
             return;
         }
     }
-#endif
+
 
     char uri[0x100];
     sprintf(uri, "payload?g=RMC%cD00&s=%s", *(char *)0x80000003, saltHex);

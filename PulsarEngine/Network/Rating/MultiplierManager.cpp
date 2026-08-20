@@ -190,6 +190,9 @@ float Get() {
 #ifdef BETA
     multiplier *= Config::BETA_MULTIPLIER;
 #endif
+#ifdef PROD
+    multiplier *= Config::MULTIPLIER;
+#endif
     return multiplier;
 }
 

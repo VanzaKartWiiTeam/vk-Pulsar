@@ -134,7 +134,7 @@ static const int QR2_KEY_BR = 0x66;
 static const int QR2_MIN = 1;
 static const int QR2_MAX = 500000;
 
-static const char* const MULTIPLIER_URL = "http://sitodaking.it:8000/VanzaKart/multiplierBeta.txt";
+static const char* const MULTIPLIER_URL = "http://sitodaking.it:8000/VanzaKart/multiplier.txt";
 static const float MULTIPLIER_MIN = 0.0f;
 static const float MULTIPLIER_MAX = 100.0f;
 static const float MULTIPLIER_DEFAULT = 1.0f;
@@ -157,6 +157,7 @@ static const u8 WEEKEND_REGIONS[3] = {0x0C, 0x0B, 0x0D};  // vs_12, vs_11, vs_13
 
 // Retro Rewind gives its beta builds a flat bonus; -DBETA is set by compile_and_link.py.
 static const float BETA_MULTIPLIER = 1.25f;
+static const float MULTIPLIER = 1.0f;
 
 // Server-side rating sync.  The architecture is compiled in, but stays inert until
 // VanzaKart actually serves the endpoint; VKRating.pul remains authoritative.
