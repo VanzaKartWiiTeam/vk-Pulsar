@@ -61,6 +61,7 @@ enum RaceSettings {
     SETTINGRACE_RADIO_BATTLE,
     SETTINGRACE_RADIO_FPS,
     SETTINGRACE_RADIO_SOM,
+    SETTINGRACE_RADIO_TT,
 
     SETTINGRACE_SCROLL_SOM = 0 + 6,
     SETTINGRACE_SCROLL_ITEMMODE = 1 + 6
@@ -72,9 +73,6 @@ enum HostSettings {
     SETTINGHOST_RADIO_CC = 2,
     SETTINGHOST_ALLOW_MIIHEADS = 3,
     SETTINGHOST_RADIO_THUNDERCLOUD = 4,
-    //No longer read: friend rooms never count towards VR, which is now only earned in the
-    //worldwide/regional rooms. The slot keeps its index so SETTINGHOST_SCROLL_GP_RACES does not
-    //move; drop the row from the pack's settings definition to make it disappear from the menu.
     SETTINGHOST_RADIO_RANKED_UNUSED = 5,
     SETTINGHOST_SCROLL_GP_RACES = 0 + 6
 };
@@ -163,6 +161,12 @@ enum RaceSettingSOMDigits {
     HOSTSETTING_SOM_DIGITS_1,
     HOSTSETTING_SOM_DIGITS_2,
     HOSTSETTING_SOM_DIGITS_3,
+};
+
+enum RaceSettingsTT{
+    RACESETTING_ITEM_DISABLED,
+    RACESETTING_ITEM_STAR,
+    RACESETTING_ITEM_MEGA
 };
 
 //Race mode for offline VS and friend rooms. Replaces the two froom mode buttons that used
