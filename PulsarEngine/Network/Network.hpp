@@ -13,7 +13,15 @@ enum DenyType {
     DENY_TYPE_KICK,
 };
 
-static const u32 MAX_TRACK_BLOCKING = 12; // Maximum number of blocked tracks synced via packets
+
+static const u32 MAX_TRACK_BLOCKING = 12;
+
+inline bool IsGroupedTrack(PulsarId id) {
+    if(id < PULSARID_FIRSTCT || id == PULSARID_NONE) return false;
+    switch(id - PULSARID_FIRSTCT) {
+        default: return false; //no group defined for this pack
+    }
+}
 
 /*
     Each VanzaKart worldwide mode matchmakes in its own DWC region. The region is what ends up

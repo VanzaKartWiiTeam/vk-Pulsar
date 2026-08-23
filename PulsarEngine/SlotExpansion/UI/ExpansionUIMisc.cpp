@@ -10,39 +10,13 @@
 #include <SlotExpansion/CupsConfig.hpp>
 #include <SlotExpansion/UI/ExpCupSelect.hpp>
 #include <SlotExpansion/UI/ExpansionUIMisc.hpp>
+#include <Network/Network.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <Settings/Settings.hpp>
 
 
 namespace Pulsar {
 namespace UI {
-static bool IsGroupedTrack(PulsarId id) {
-    if (CupsConfig::IsReg(id)) return false;
-    const u32 idx = id - 0x100;
-    switch (idx) {
-        case 6:
-        case 9:
-        case 27:
-        case 29:
-        case 31:
-        case 32:
-        case 37:
-        case 51:
-        case 57:
-        case 61:
-        case 63:
-        case 67:
-        case 73:
-        case 76:
-        case 77:
-        case 85:
-            return true;
-        default:
-            if (idx >= 88 && idx <= 103) return true;
-            return false;
-    }
-}
-
 const wchar_t* GetTrackName(s32 bmgId) {
     s32 msgId;
     if (System::sInstance != nullptr && System::sInstance->GetBMG().messageIds != nullptr) {
@@ -78,7 +52,7 @@ bool IsTrackBlocked(PulsarId id) {
     if (controller != nullptr &&
         (controller->roomType == RKNet::ROOMTYPE_JOINING_REGIONAL ||
          controller->roomType == RKNet::ROOMTYPE_VS_REGIONAL)) {
-        if (IsGroupedTrack(id) && system->netMgr.lastGroupedTrackPlayed) {
+        if (Network::IsGroupedTrack(id) && system->netMgr.lastGroupedTrackPlayed) {
             return true;
         }
     }

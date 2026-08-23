@@ -1,6 +1,7 @@
 #ifndef _PUL_NETWORK_EXPANSION_
 #define _PUL_NETWORK_EXPANSION_
 
+#include <Network/Network.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <MarioKartWii/RKNet/SELECT.hpp>
 #include <MarioKartWii/RKNet/EVENT.hpp>
@@ -58,7 +59,7 @@ struct PulROOM : public     RKNet::ROOMPacket {
     u8 blockedTrackCount;  // Number of valid entries in blockedTracks (up to MAX_TRACK_BLOCKING)
     u8 curBlockingArrayIdx;  // Current write index in circular buffer
     bool lastGroupedTrackPlayed;
-    u16 blockedTracks[12];  // PulsarId array (up to MAX_TRACK_BLOCKING tracks)
+    u16 blockedTracks[MAX_TRACK_BLOCKING];  // PulsarId array
     
     // Extended Team settings
     u8 extendedTeams[6]; // 4 bits per AID, they encode the team ID (4 * 12 = 48 bits = 6 bytes)
@@ -98,7 +99,7 @@ struct PulSELECT : public RKNet::SELECTPacket {
     u8 blockedTrackCount;  // Number of valid entries in blockedTracks
     u8 curBlockingArrayIdx;  // Current write index in circular buffer
     bool lastGroupedTrackPlayed;
-    u16 blockedTracks[12];  // PulsarId array (up to MAX_TRACK_BLOCKING tracks)
+    u16 blockedTracks[MAX_TRACK_BLOCKING];  // PulsarId array
 };
 
 struct PulRACEDATA : public RKNet::RACEDATAPacket {};
