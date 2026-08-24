@@ -18,24 +18,27 @@ void restartItem(){
 void itemOnTT(){
     bool isTT = DriverMgr::isTT;
     if(isTT==true && isGivenItem == false){
-        if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_RADIO_TT) == RACESETTING_ITEM_DISABLED){
-            Item::Manager::sInstance->players[0].inventory.SetItem(TRIPLE_MUSHROOM, true);
-            isGivenItem = true;
-            OS::Report("[TEST LOG DIO CANE]PulsarEngine: Giving player 1 a Triple Mushroom for TT\n", 0);
-        }
-        else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_RADIO_TT) == RACESETTING_ITEM_STAR){
-            Item::Manager::sInstance->players[0].inventory.SetItem(STAR, true);
-            isGivenItem = true;
-            OS::Report("[TEST LOG DIO CANE]PulsarEngine: Giving player 1 a Star for TT\n", 0);
-        }
-        else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_RADIO_TT) == RACESETTING_ITEM_MEGA){
-            Item::Manager::sInstance->players[0].inventory.SetItem(MEGA_MUSHROOM, true);
-            isGivenItem = true;
-            OS::Report("[TEST LOG DIO CANE]PulsarEngine: Giving player 1 a Mega Mushroom for TT\n", 0);
+        switch(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_RACE, SETTINGRACE_RADIO_TT)){
+            case RACESETTING_ITEM_DISABLED:
+                Item::Manager::sInstance->players[0].inventory.SetItem(TRIPLE_MUSHROOM, true);
+                isGivenItem = true;
+            break;
+            case RACESETTING_ITEM_STAR:
+                Item::Manager::sInstance->players[0].inventory.SetItem(STAR, true);
+                isGivenItem = true;
+            break;
+            case RACESETTING_ITEM_MEGA:
+                Item::Manager::sInstance->players[0].inventory.SetItem(MEGA_MUSHROOM, true);
+                isGivenItem = true;
+            break;
+            case RACESETTING_ITEM_GOLDEN:
+                Item::Manager::sInstance->players[0].inventory.SetItem(GOLDEN_MUSHROOM, true);
+                isGivenItem=true;
+            break;
         }
     }
 }
-RaceLoadHook megaRestart(restartItem);
-RaceFrameHook mega(itemOnTT);
+RaceLoadHook Restart(restartItem);
+RaceFrameHook item(itemOnTT);
 }
 }

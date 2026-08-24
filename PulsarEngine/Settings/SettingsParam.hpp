@@ -166,7 +166,8 @@ enum RaceSettingSOMDigits {
 enum RaceSettingsTT{
     RACESETTING_ITEM_DISABLED,
     RACESETTING_ITEM_STAR,
-    RACESETTING_ITEM_MEGA
+    RACESETTING_ITEM_MEGA,
+    RACESETTING_ITEM_GOLDEN
 };
 
 //Race mode for offline VS and friend rooms. Replaces the two froom mode buttons that used
