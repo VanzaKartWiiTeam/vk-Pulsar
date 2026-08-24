@@ -109,6 +109,8 @@ struct PulEVENT : public    RKNet::EVENTPacket {}; //NOT RECOMMENDED as this has
 #pragma pack(pop)
 
 static_assert(sizeof(PulROOM) < sizeof(PulSELECT), "ROOM SELECT");
+static_assert(sizeof(PulRH1) == 51, "PulRH1 cambiata: aggiorna MatchHeader in mkwSecurity.cpp");
+static_assert(sizeof(PulSELECT) == 98, "PulSELECT cambiata: aggiorna RoomSelect in mkwSecurity.cpp");
 
 class ExpSELECTHandler {
 public:

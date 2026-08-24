@@ -22,23 +22,17 @@ inline bool IsGroupedTrack(PulsarId id) {
         default: return false; //no group defined for this pack
     }
 }
+#ifdef BETA
+#  define VK_REGION_OFFSET 100
+#else
+#  define VK_REGION_OFFSET 0
+#endif
 
-/*
-    Each VanzaKart worldwide mode matchmakes in its own DWC region. The region is what ends up
-    in the "rk" key of the QR2 record ("vs_105" and so on), and that key is the only thing that
-    keeps two public rooms apart: two players whose rk differs can never be matched together,
-    two players whose rk matches always can, no matter which mode they picked in the menu.
-
-    Everything that talks to the server (the rk string, the RKNet controller region, the player
-    counters on the WFC pages) must therefore read REGIONID, which follows the mode the player
-    chose. Info::GetWiimmfiRegion is the pack's base region: it is a constant, it is what the
-    login region is built from, and it is only correct for plain VS worldwide.
-*/
 enum ModeRegion {
-    REGION_VS = 0x68,        // plain VS worldwide, same value as the pack's base region
-    REGION_OTT = 0x69,       // Online TT worldwide
-    REGION_200CC = 0x70,     // 200cc worldwide
-    REGION_ITEMRAIN = 0x71,  // Item Rain worldwide
+    REGION_VS = 104 + VK_REGION_OFFSET,        // plain VS worldwide, same value as the pack's base region
+    REGION_OTT = 105 + VK_REGION_OFFSET,       // Online TT worldwide
+    REGION_200CC = 112 + VK_REGION_OFFSET,     // 200cc worldwide
+    REGION_ITEMRAIN = 113 + VK_REGION_OFFSET,  // Item Rain worldwide
 };
 
 extern u32 REGIONID;

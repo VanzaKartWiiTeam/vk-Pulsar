@@ -98,9 +98,17 @@ kmCall(0x8085d460, DisplayTimesInsteadOfNames); //for WWs
 //don't hide position tracker (MrBean35000vr)
 kmWrite32(0x807F4DB8, 0x38000001);
 
-//Draggable blue shells
+static bool IsWorldwideRoom() {
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if(controller == nullptr) return false;
+    const RKNet::RoomType roomType = controller->roomType;
+    return roomType == RKNet::ROOMTYPE_VS_WW ||
+           roomType == RKNet::ROOMTYPE_BT_WW ||
+           roomType == RKNet::ROOMTYPE_JOINING_WW;
+}
+
 static void DraggableBlueShells(Item::PlayerObj& sub) {
-    sub.isNotDragged = false;
+    sub.isNotDragged = IsWorldwideRoom();
 }
 kmBranch(0x807ae8ac, DraggableBlueShells);
 
