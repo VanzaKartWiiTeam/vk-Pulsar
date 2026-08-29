@@ -13,6 +13,9 @@ extern u8 RaceRename;
 extern u8 CommonRename;
 extern u8 AwardRename;
 
+// Transmission System :3c
+extern u16 U16_MISSION_MODE_FIX;
+
 namespace Languages {
 void ApplyArchiveLanguage();
 }
@@ -46,7 +49,15 @@ extern u16 CUSTOM_DAISY_MENU;
 extern u16 CUSTOM_ROSALINA_MENU;
 extern u8 CUSTOM_DRIVER;
 
-namespace RetroRewind {
+namespace VanzaKart {
+
+// Transmission types for vehicle behavior
+enum Transmission {
+    TRANSMISSION_DEFAULT = 0,
+    TRANSMISSION_OUTSIDE = 1,
+    TRANSMISSION_INSIDE = 2
+};
+
 class System : public Pulsar::System {
    public:
     static bool Is500cc();
@@ -89,7 +100,9 @@ class System : public Pulsar::System {
     };
 
     WeightClass weight;
-    static Pulsar::System* Create();  // My Create function, needs to return Pulsar
+    Transmission transmissions[12];
+    
+    static Pulsar::System* Create();
     static WeightClass GetWeightClass(CharacterId);
 };
-}  // namespace RetroRewind
+}  // namespace VanzaKart
