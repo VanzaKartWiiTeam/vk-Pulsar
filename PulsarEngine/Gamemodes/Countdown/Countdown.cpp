@@ -1,10 +1,14 @@
 #include <kamek.hpp>
 #include <runtimeWrite.hpp>
 #include <PulsarSystem.hpp>
+#include <Debug/BetaLog.hpp>
 #include <Gamemodes/Countdown/Countdown.hpp>
 #include <Extensions/LECODE/Lex.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/Race/Racedata.hpp>
+#include <MarioKartWii/Item/ItemBehaviour.hpp>
+#include <MarioKartWii/Item/ItemPlayer.hpp>
+#include <MarioKartWii/UI/Ctrl/UIControl.hpp>
 
 
 extern "C" {
@@ -14,8 +18,11 @@ u8 CountdownFinalStretch;
 u8 CountdownHitCount;
 u8 CountdownRacerCount;
 void* CountdownTimerObj;
-void* CountdownDisplayPtr;
-float CountdownHitBonus;
+void* CountdownDisplayPtr; //animation frame of lap_riight, the score digit
+void* CountdownLapCtrl;    //the CtrlRaceLap, so the SCORE caption can be found by name
+float CountdownHitBonus;   //how far the score animation advances per point (one texture)
+float CountdownDisplayCap; //the animation stops here: frame 10 is the axe
+u32 CountdownFramesBefore; //raceFrameCounter before the hit bonus, so the beta log can show both sides
 u32 CountdownEndFrame;
 u32 CountdownRampFrame;
 u32 CountdownFinalFrame;
@@ -33,6 +40,55 @@ extern "C" void EndRaceEarly(void*);
 extern "C" void CountdownSymbol1(void);
 extern "C" void CountdownSymbol2(void);
 extern "C" void OSReport(const char* format, ...);
+extern "C" void UseMegaMushroom__Q24Item6PlayerFv(Item::Player* self);
+
+/*
+Called from Countdown8 on every scoring hit. It is called unconditionally rather than guarded by
+an #ifdef inside the ASM block, because a preprocessor directive cannot live inside the ASM()
+macro argument. Outside a beta build the body compiles away and this is one call on a path that
+runs a handful of times per race.
+
+The float is passed as raw bits: getting a float into a varargs call from hand written ASM is far
+more trouble than reinterpreting it here.
+*/
+/*
+One pane, one digit: frames 0 to 9 are the digits and frame 10 is the axe, which the animation
+holds for every score above it. The score itself is not clamped anywhere - it just stops being
+readable once the axe is up.
+
+The SCORE caption is hidden at the same moment, so what is left on screen is the axe alone. Both
+are driven from the score rather than toggled once, so a score that goes back down - or a fresh
+race on the same control - puts the caption back.
+*/
+static void SetPaneVisible(lyt::Pane* pane, bool visible) {
+    if(pane == nullptr) return;
+    if(visible) pane->flag |= 0x01;
+    else pane->flag &= ~0x01;
+}
+
+static void UpdateScoreDisplay(u32 score) {
+    const bool axeUp = score >= Pulsar::Countdown::scoreAxeAt;
+
+    float* const digit = static_cast<float*>(CountdownDisplayPtr);
+    if(digit != nullptr) {
+        *digit = static_cast<float>(axeUp ? Pulsar::Countdown::scoreAxeAt : score);
+    }
+
+    LayoutUIControl* const ctrl = static_cast<LayoutUIControl*>(CountdownLapCtrl);
+    if(ctrl == nullptr) return;
+    //In game_image_lapCD.brlyt the pane called slash is the one textured with tt_score_E.
+    SetPaneVisible(ctrl->layout.GetPaneByName("slash"), !axeUp);
+}
+
+extern "C" void CountdownHitLog(u32 score, u32 raceFrames, u32 displayBits, u32 capBits) {
+    UpdateScoreDisplay(score);
+#ifdef BETA
+    const u32 before = CountdownFramesBefore;
+    OS::Report("[Countdown] HIT score=%d frames %d -> %d (delta %d, want -180) axe=%d\n",
+               (int)score, (int)before, (int)raceFrames, (int)raceFrames - (int)before,
+               (int)(score >= Pulsar::Countdown::scoreAxeAt));
+#endif
+}
 
 extern "C" void Countdown4End(void*);
 asmFunc Countdown4() {
@@ -282,13 +338,13 @@ asmFunc Countdown8() {
     lwz       r7, CountdownActive@l(r6);
     cmpwi     r7, 0x1;
     bne+      cd8_end;
-    cmpwi     r0, 0xA;
-    bgt-      cd8_end;
     lis       r7, CountdownTimerObj@ha;
     lwz       r7, CountdownTimerObj@l(r7);
     cmpwi     r7, 0;
     beq-      cd8_display;
     lwz       r8, 0x48(r7);
+    lis       r6, CountdownFramesBefore@ha;
+    stw       r8, CountdownFramesBefore@l(r6);
     cmpwi     r8, 0xB4;
     bgt+      cd8_sub;
     li        r8, 0;
@@ -308,11 +364,40 @@ cd8_display:
     beq-      cd8_end;
     lfs       f1, 0x0(r7);
     fadds     f1, f0, f1;
+    lis       r6, CountdownDisplayCap@ha;
+    lwz       r8, CountdownDisplayCap@l(r6);
+    cmpwi     r8, 0;
+    beq-      cd8_store;
+    lfs       f0, CountdownDisplayCap@l(r6);
+    fcmpo     cr0, f1, f0;
+    ble-      cd8_store;
+    fmr       f1, f0;
+
+cd8_store:
     stfs      f1, 0x0(r7);
     mflr      r11;
     stwu      r1, -0x90(r1);
     stw       r0, 0x8C(r1);
     stmw      r3, 0x8(r1);
+    mr        r3, r0;
+    lis       r4, CountdownTimerObj@ha;
+    lwz       r4, CountdownTimerObj@l(r4);
+    cmpwi     r4, 0;
+    beq-      cd8_noframes;
+    lwz       r4, 0x48(r4);
+    b         cd8_dolog;
+
+cd8_noframes:
+    li        r4, -0x1;
+
+cd8_dolog:
+    lwz       r5, 0x0(r7);
+    lis       r6, CountdownDisplayCap@ha;
+    lwz       r6, CountdownDisplayCap@l(r6);
+    lis       r12, CountdownHitLog@h;
+    ori       r12, r12, CountdownHitLog@l;
+    mtctr     r12;
+    bctrl;
     lis       r3, sInstance__Q25Audio10RSARPlayer@ha;
     lwz       r3, sInstance__Q25Audio10RSARPlayer@l(r3);
     li        r4, 0xE7;
@@ -373,6 +458,10 @@ asmFunc Countdown10() {
     lwz       r3, CountdownActive@l(r4);
     cmpwi     r3, 0;
     beq-      cd10_end;
+
+    lis       r4, CountdownLapCtrl@ha;
+    stw       r28, CountdownLapCtrl@l(r4);
+
     lwz       r5, 0x98(r28);
     lwz       r5, 0x44(r5);
     lwz       r5, 0x0(r5);
@@ -614,6 +703,8 @@ kmRuntimeUse(0x805349EC);
 kmRuntimeUse(0x807EA790);
 kmRuntimeUse(0x80535350);
 kmRuntimeUse(0x808A9CC7);
+kmRuntimeUse(0x807AF1BC);
+kmRuntimeUse(0x80860AF0);
 
 namespace Pulsar {
 namespace Countdown {
@@ -658,13 +749,112 @@ u32 GetTimeLimitMs() {
     return (endFrame * 1000) / 60;
 }
 
+u8 GetLapCount(u8 kmpLapCount) {
+    if(!IsEnabled() || kmpLapCount <= 1) return kmpLapCount;
+    PUL_BETA_LOG("[Countdown] lap count %d -> %d\n", (int)kmpLapCount, (int)raceLapCount);
+    return raceLapCount;
+}
+
 static void RefreshLimits() {
+    //Re-established here as well as in ApplyPatches: Countdown8 clamps the score animation against
+    //CountdownDisplayCap, so a zero there would freeze the counter instead of capping it.
+    CountdownHitBonus = displayStepPerPoint;
+    CountdownDisplayCap = displayCap;
+
     const u32 ms = GetTimeLimitMs();
     const u32 frames = (ms / 1000) * 60;
     CountdownTimeLimitMs = ms;
     CountdownEndFrame = frames;
     CountdownRampFrame = frames > 2700 ? frames - 2700 : 0;
     CountdownFinalFrame = frames + 1800;
+}
+
+/*
+Thundercloud replacement.
+
+Countdown5 rewrites Item::Behavior::behaviourTable so that the thundercloud slot hands out a
+Mega Mushroom instead: entry 14 gets objId OBJ_MEGA_MUSHROOM and the Mega's use function. That
+covers every item that goes through the table, but the cloud never does - it auto fires, and
+the auto fire path calls Item::Player::UseTC directly, so a real cloud still spawned in
+countdown races. Branching UseTC itself catches both paths.
+
+The branch is only installed while the mode is on (see branches[] below), so UseTC is untouched
+everywhere else and there is no need to call the original from here.
+*/
+static void CountdownUseTC(Item::Player* self) {
+    PUL_BETA_LOG("[Countdown] UseTC intercepted for player %d -> Mega Mushroom\n", self->id);
+    UseMegaMushroom__Q24Item6PlayerFv(self);
+}
+
+/*
+Item icons.
+
+Countdown rewrites Item::Behavior::behaviourTable, so six slots hand out something other than
+what their vanilla icon shows. Rather than shipping new art, each of those slots is pointed at
+the pane of the item it actually gives: item.brlyt already carries a pane for every vanilla
+item, and every countdown replacement happens to be a vanilla item.
+
+What Countdown5 really writes (offsets decoded against Item::Behavior, 0x1C bytes per entry):
+    MUSHROOM           objId OBJ_GREEN_SHELL,    useType FIRE    -> throws one green shell
+    TRIPLE_MUSHROOM    objId OBJ_RED_SHELL,      useType CIRCLE  -> three circling red shells
+    MEGA_MUSHROOM      objId OBJ_BOBOMB,         useType FIRE    -> throws a bob-omb
+    THUNDER_CLOUD      objId OBJ_MEGA_MUSHROOM, Mega's useFunc   -> Mega Mushroom
+    TRIPLE_GREEN_SHELL objId OBJ_FAKE_ITEM_BOX                   -> fake item boxes
+    TRIPLE_RED_SHELL   objId OBJ_GREEN_SHELL                     -> green shells
+
+The earlier version of this table pointed three of those at Picture_01/02/03 (placeholder
+spheres) and two more at textures that only exist swapped inside CTDN.szs. That archive is a
+Scene/UI/Race.szs variant which this pack does not load, so those icons were either placeholders
+or plain wrong; and swapping the textures for real would change them in every other mode too,
+because Race.szs is shared. Naming the right pane costs nothing and is scoped to the mode, since
+this function is only branched in while countdown is active.
+
+This replaces GetItemIconPaneName wholesale, so every item has to be listed.
+*/
+static const char* CountdownItemIconPaneName(ItemId id, u32 count) {
+    switch(id) {
+        case GREEN_SHELL:        return "kame_green";
+        case RED_SHELL:          return "kame_red";
+        case BANANA:             return "banana";
+        case FAKE_ITEM_BOX:      return "dummybox";
+        case MUSHROOM:           return "kame_green";                               //one thrown green shell
+        case TRIPLE_MUSHROOM:    return count >= 2 ? "kame_red_3" : "kame_red";     //circling red shells
+        case BOBOMB:             return "bomb_hei";
+        case BLUE_SHELL:         return "kame_wing";
+        case LIGHTNING:          return "thunder";
+        case STAR:               return "star";
+        case GOLDEN_MUSHROOM:    return "GoldenKinoko";
+        case MEGA_MUSHROOM:      return "bomb_hei";                                 //throws a bob-omb
+        case BLOOPER:            return "gesso";
+        case POW_BLOCK:          return "pow";
+        case THUNDER_CLOUD:      return "kinoko_big";                               //Mega Mushroom
+        case BULLET_BILL:        return "killer";
+        case TRIPLE_GREEN_SHELL: return "dummybox";                                 //fake item boxes
+        case TRIPLE_RED_SHELL:   return count >= 2 ? "kame_green_3" : "kame_green"; //green shells
+        case TRIPLE_BANANA:      return count >= 2 ? "banana_3" : "banana";
+        default:                 return "empty";
+    }
+}
+
+/*
+Wrapper so a beta build can report the icon picked for the six remapped slots. The lookup runs on
+every item window refresh, so only a change of item is reported, otherwise the console fills up
+with the same line.
+*/
+static ItemId lastLoggedIconItem = ITEM_NONE;
+
+static bool IsRemappedByCountdown(ItemId id) {
+    return id == MUSHROOM || id == TRIPLE_MUSHROOM || id == MEGA_MUSHROOM
+        || id == THUNDER_CLOUD || id == TRIPLE_GREEN_SHELL || id == TRIPLE_RED_SHELL;
+}
+
+static const char* CountdownItemIconPaneNameHook(ItemId id, u32 count) {
+    const char* pane = CountdownItemIconPaneName(id, count);
+    if(id != lastLoggedIconItem) {
+        lastLoggedIconItem = id;
+        if(IsRemappedByCountdown(id)) PUL_BETA_LOG("[Countdown] item 0x%X (count %d) -> %s\n", (int)id, (int)count, pane);
+    }
+    return pane;
 }
 
 struct Patch {
@@ -691,7 +881,11 @@ static const BranchPatch branches[] ={
     { kmRuntimeAddr(0x805887E0), (void*)Countdown12, 0x7CA00039 }, //and. r0, r5, r0
     { kmRuntimeAddr(0x80574D78), (void*)Countdown14, 0x8BC3003A }, //lbz r30, 0x3A(r3)
     { kmRuntimeAddr(0x80860608), (void*)Countdown15, 0x80030124 }, //lwz r0, 0x124(r3)
-    { kmRuntimeAddr(0x807308B8), (void*)Countdown16, 0x7FC3F378 }  //mr r3, r30
+    { kmRuntimeAddr(0x807308B8), (void*)Countdown16, 0x7FC3F378 }, //mr r3, r30
+    //No expected instruction for these two: they replace a whole function, so the first word is
+    //whatever the compiler emitted and there is nothing meaningful to validate against.
+    { kmRuntimeAddr(0x807AF1BC), (void*)CountdownUseTC, 0 },              //Item::Player::UseTC
+    { kmRuntimeAddr(0x80860AF0), (void*)CountdownItemIconPaneNameHook, 0 } //GetItemIconPaneName
 };
 static const u32 branchCount = sizeof(branches) / sizeof(branches[0]);
 
@@ -710,10 +904,82 @@ static u32 originalBranches[branchCount];
 static u32 originalWrites[writeCount];
 static u32 originalEndRace;
 static u8 originalHudNameByte;
+//Countdown5 rewrites the item behaviour table in place and nothing ever put it back, so the
+//remapped items leaked into every later race of the session: a leaked entry sends an item to an
+//object id that race never loaded, and the first shoot faults on a null pointer.
+static Item::Behavior originalBehaviours[19];
+static bool capturedBehaviours = false;
 static bool capturedOriginals = false;
 static bool sitesValid = false;
 static bool patchesApplied = false;
 static bool endRacePatchInstalled = false;
+
+/*
+The snapshot has to be taken while the table is both initialised and unpatched, and neither is
+guaranteed at the moment the mode is switched on: the table is filled at runtime, so an early
+page load can see it still empty, and from the second countdown race on Countdown5 has already
+rewritten it. Copying at the wrong moment handed the restore a table of nulls, which is exactly
+what the next race then called into.
+
+So the capture is attempted repeatedly and only accepted once the table reads as vanilla. The
+check covers every entry Countdown5 touches plus three it never does, so a patched table and an
+empty one are both rejected and the attempt is simply retried at the next race load.
+*/
+static bool IsBehaviourTableVanilla() {
+    const Item::Behavior* table = Item::Behavior::behaviourTable;
+    return table[MUSHROOM].objId == OBJ_MUSHROOM
+        && table[TRIPLE_MUSHROOM].objId == OBJ_MUSHROOM
+        && table[MEGA_MUSHROOM].objId == OBJ_MEGA_MUSHROOM
+        && table[THUNDER_CLOUD].objId == OBJ_THUNDER_CLOUD
+        && table[TRIPLE_GREEN_SHELL].objId == OBJ_GREEN_SHELL
+        && table[TRIPLE_RED_SHELL].objId == OBJ_RED_SHELL
+        && table[BANANA].objId == OBJ_BANANA
+        && table[STAR].objId == OBJ_STAR
+        && table[BULLET_BILL].objId == OBJ_BULLET_BILL;
+}
+
+static void CaptureBehaviours() {
+    if(capturedBehaviours) return;
+    if(!IsBehaviourTableVanilla()) {
+        PUL_BETA_LOG("[Countdown] item behaviour table not vanilla yet, snapshot postponed\n");
+        return;
+    }
+    capturedBehaviours = true;
+    for(u32 i = 0; i < 19; ++i) originalBehaviours[i] = Item::Behavior::behaviourTable[i];
+    PUL_BETA_LOG("[Countdown] item behaviour table snapshotted\n");
+}
+
+static void RestoreBehaviours() {
+    if(!capturedBehaviours) return;
+    for(u32 i = 0; i < 19; ++i) Item::Behavior::behaviourTable[i] = originalBehaviours[i];
+}
+
+/*
+KamekRuntimeWrite::Branch refuses anything outside a 26 bit displacement and reports it by
+returning false, which the install loop used to throw away. A mode running with some of its hooks
+missing is worse than one that does not run at all, because each patched function assumes the
+others are there, so the distances are checked up front and a failure disables the mode like any
+other bad site.
+*/
+static bool IsBranchReachable(u32 from, u32 to) {
+    const s32 delta = (s32)to - (s32)from;
+    return delta >= -0x02000000 && delta <= 0x01FFFFFC;
+}
+
+static bool AreHooksReachable() {
+    bool reachable = true;
+    for(u32 i = 0; i < branchCount; ++i) {
+        if(!IsBranchReachable(branches[i].address, (u32)branches[i].dest)) {
+            OSReport("[Countdown] hook 0x%08X -> 0x%08X is out of branch range\n", branches[i].address, (u32)branches[i].dest);
+            reachable = false;
+        }
+    }
+    if(!IsBranchReachable(kmRuntimeAddr(0x80535350), (u32)EndCountdownRace)) {
+        OSReport("[Countdown] EndRace hook is out of branch range\n");
+        reachable = false;
+    }
+    return reachable;
+}
 
 static void CaptureOriginals() {
     if(capturedOriginals) return;
@@ -746,6 +1012,7 @@ static void CaptureOriginals() {
         OSReport("[Countdown] HUD name 0x%08X: expected 'l', found 0x%02X\n", kmRuntimeAddr(0x808A9CC7), originalHudNameByte);
         sitesValid = false;
     }
+    if(!AreHooksReachable()) sitesValid = false;
     if(!sitesValid) OSReport("[Countdown] mode disabled: the addresses do not match this version of the game\n");
 }
 
@@ -756,17 +1023,26 @@ static void ApplyPatches(bool enable) {
     patchesApplied = enable;
 
     if(enable) {
+        CaptureBehaviours();
         CountdownRaceOver = 0;
         CountdownFinalStretch = 0;
         CountdownHitCount = 0;
         CountdownTimerObj = nullptr;
         CountdownDisplayPtr = nullptr;
-        CountdownHitBonus = (float)hitBonusFrames / 60.0f;
+        CountdownLapCtrl = nullptr;
+        //One point, one texture. This used to be hitBonusFrames / 60, ie 3.0f, which is why a
+        //single hit jumped the counter by three: the value doubles as the frame step of the
+        //score animation, not as the time bonus. The time bonus is still 0xB4 frames, applied
+        //directly in Countdown8.
+        CountdownHitBonus = displayStepPerPoint;
+        CountdownDisplayCap = displayCap;
         RefreshLimits();
         CountdownActive = 1;
         for(u32 i = 0; i < branchCount; ++i) KamekRuntimeWrite::Branch(branches[i].address, (u32)branches[i].dest, false);
         for(u32 i = 0; i < writeCount; ++i) KamekRuntimeWrite::Write32(writes[i].address, writes[i].patched);
         KamekRuntimeWrite::Write8(kmRuntimeAddr(0x808A9CC7), 'm'); //lap_number -> map_number
+        PUL_BETA_LOG("[Countdown] patches ON, %d branches, step %d.0 point(s), cap %d\n",
+                     (int)branchCount, (int)displayStepPerPoint, (int)displayCap);
     }
     else {
         CountdownActive = 0;
@@ -774,23 +1050,41 @@ static void ApplyPatches(bool enable) {
         for(u32 i = 0; i < writeCount; ++i) KamekRuntimeWrite::Write32(writes[i].address, originalWrites[i]);
         KamekRuntimeWrite::Write8(kmRuntimeAddr(0x808A9CC7), originalHudNameByte);
         KamekRuntimeWrite::Write32(kmRuntimeAddr(0x80535350), originalEndRace);
+        RestoreBehaviours();
+        //Both point into the race heap, which is about to be torn down.
+        CountdownTimerObj = nullptr;
+        CountdownDisplayPtr = nullptr;
+        CountdownLapCtrl = nullptr;
         endRacePatchInstalled = false;
         CountdownRaceOver = 0;
+        PUL_BETA_LOG("[Countdown] patches OFF, item behaviour table restored\n");
     }
 }
 
+//Runs on every page load, so it stays quiet: ApplyPatches already reports the transitions.
 static void Toggle() {
     ApplyPatches(IsEnabled());
 }
 static PageLoadHook CountdownToggle(Toggle);
 
 static void ResetForNewRace() {
+    /*
+        Unconditional, and ahead of the early return: whatever Countdown5 wrote during the previous
+        race is undone here, so a race that is not a countdown race can never inherit it. Waiting
+        for the mode to be switched off was not enough - the player can leave countdown through a
+        path that never reaches a page load carrying the new context.
+    */
+    CaptureBehaviours();
+    RestoreBehaviours();
+
     if(!patchesApplied) return;
+    PUL_BETA_LOG("[Countdown] race start, score reset\n");
     CountdownRaceOver = 0;
     CountdownFinalStretch = 0;
     CountdownHitCount = 0;
     CountdownTimerObj = nullptr;
     CountdownDisplayPtr = nullptr;
+    CountdownLapCtrl = nullptr;
     if(endRacePatchInstalled) {
         KamekRuntimeWrite::Write32(kmRuntimeAddr(0x80535350), originalEndRace);
         endRacePatchInstalled = false;

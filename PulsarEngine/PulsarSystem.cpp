@@ -39,8 +39,16 @@ void System::CreateSystem() {
 //kmCall(0x80543bb4, System::CreateSystem);
 BootHook CreateSystem(System::CreateSystem, 0);
 
+/*
+The stack used to be 0x4000. EGG::TaskThread::Create allocates the object first and its stack
+immediately after, so the stack grows down straight into the object it belongs to: overrunning it
+by as little as 0x50 bytes lands on the embedded OS::MessageQueue at +0x0C and corrupts the
+receive queue's head. The symptom is a DSI inside OSWakeupThread the next time anything posts a
+task, long after the task that actually overflowed has finished, which is why it looked like a
+crash in unrelated menu code. 16K is not much for file IO with path buffers on the stack.
+*/
 System::System() :
-    heap(RKSystem::mInstance.EGGSystem), taskThread(EGG::TaskThread::Create(8, 0, 0x4000, this->heap)),
+    heap(RKSystem::mInstance.EGGSystem), taskThread(EGG::TaskThread::Create(8, 0, 0x10000, this->heap)),
     //Modes
     koMgr(nullptr) {
     customBmgs.bmgFile = nullptr;

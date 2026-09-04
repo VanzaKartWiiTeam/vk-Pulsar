@@ -36,7 +36,7 @@ struct StackFrame {
 };
 
 enum {
-    EXCEPTION_FILE_VERSION = 3,
+    EXCEPTION_FILE_VERSION = 4,
     EXCEPTION_FLAG_LOOSE_ARCHIVE_OVERRIDES_ENABLED = 1 << 0,
     EXCEPTION_FLAG_CUSTOM_CHARACTER_ENABLED = 1 << 1,
     EXCEPTION_MAX_TRACK_SZS_LENGTH = 64,
@@ -79,6 +79,14 @@ struct ExceptionFile {
     FPR fpscr;
     StackFrame frames[10];
     CrashExtra extra;
+    /*
+        Appended in version 4, at the end so an older reader still finds everything it knew
+        about. Without these a DSI is unreadable: srr0 says which instruction faulted but not
+        which address it touched, and that is the only thing separating a null pointer from a
+        wild one. Both are self labelled so they show up in a plain text dump of the file.
+    */
+    GPR dsisr;
+    GPR dar;
 };
 
 }//namespace Debug
