@@ -28,6 +28,7 @@
 #include <UI/ExtendedTeamSelect/ExtendedTeamSelect.hpp>
 #include <UI/ExtendedTeamSelect/Result/ExtendedTeamResultTotal.hpp>
 #include <UI/ExtendedTeamSelect/Result/ExtendedTeamResultIrregularTotal.hpp>
+#include <UI/TransmissionSelect/TransmissionSelect.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -150,6 +151,14 @@ void ExpSection::CreatePulPages() {
     if(this->Get<Pages::CourseSelect>() != nullptr) {
         this->CreateAndInitPage(*this, PULPAGE_VARIANTSELECT);
     }
+    /*
+        Any section that owns a drift select can be routed through the transmission page first.
+        It has to be created here and nowhere earlier: CreatePages memsets pulPages right after
+        CreateSectionPages, so a pointer stored during page creation is wiped before it is used.
+    */
+    if(this->Get<Pages::DriftSelect>() != nullptr) {
+        this->CreateAndInitPage(*this, PULPAGE_TRANSMISSIONSELECT);
+    }
 }
 
 void ExpSection::CreateAndInitPage(ExpSection& self, u32 id) {
@@ -248,6 +257,9 @@ void ExpSection::CreateAndInitPage(ExpSection& self, u32 id) {
             break;
         case ExtendedTeamResultIrregularTotal::id:
             page = new ExtendedTeamResultIrregularTotal;
+            break;
+        case TransmissionSelect::id:
+            page = new TransmissionSelect;
             break;
         default:
             page = self.CreatePageById(initId);

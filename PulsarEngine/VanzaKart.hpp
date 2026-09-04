@@ -1,3 +1,6 @@
+#ifndef _VANZAKART_
+#define _VANZAKART_
+
 #include <kamek.hpp>
 #include <PulsarSystem.hpp>
 #include <Settings/Settings.hpp>
@@ -106,3 +109,4 @@ class System : public Pulsar::System {
     static WeightClass GetWeightClass(CharacterId);
 };
 }  // namespace VanzaKart
+#endif

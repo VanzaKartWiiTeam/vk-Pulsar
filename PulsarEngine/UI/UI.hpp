@@ -38,8 +38,9 @@ enum PulPageId {
     PULPAGE_EXTENDEDTEAMSELECT,
     PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL,
     PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR,
+    PULPAGE_TRANSMISSIONSELECT,
 
-    PULPAGE_MAX = PULPAGE_EXTENDEDTEAMS_RESULT_TOTAL_IRREGULAR - PULPAGE_INITIAL + 1
+    PULPAGE_MAX = PULPAGE_TRANSMISSIONSELECT - PULPAGE_INITIAL + 1
 };
 
 class ExpSection : public Section { //u32 id -> either a standard pageId but can also be a PulPageId
@@ -188,6 +189,14 @@ enum BMG {
     BMG_KO_RACEEND_SPECTATE = 0x286a,
     BMG_KO_RACEEND_QUIT = 0x286b,
     BMG_KO_TIE = 0x286c,
+
+    //Transmission select. These five need matching entries in the pack's Menu.bmg; without them
+    //the page still works but comes up with blank labels.
+    BMG_TRANSMISSION_SELECT = 0x2870,
+    BMG_OUTSIDE_TRANSMISSION = 0x2871,
+    BMG_INSIDE_TRANSMISSION = 0x2872,
+    BMG_OUTSIDE_TRANSMISSION_BOTTOM = 0x2873,
+    BMG_INSIDE_TRANSMISSION_BOTTOM = 0x2874,
 
     BMG_SETTINGSBUTTON_BOTTOM = 0x2901,
     BMG_TEAMS_BOTTOM = 0x2910,

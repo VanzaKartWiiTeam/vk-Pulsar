@@ -5,13 +5,18 @@
 #include <MarioKartWii/Kart/KartMovement.hpp>
 #include <MarioKartWii/Item/Obj/ObjProperties.hpp>
 #include <Race/200ccParams.hpp>
+#include <Gamemodes/Countdown/Countdown.hpp>
 #include <PulsarSystem.hpp>
 
 namespace Pulsar {
 namespace Race {
 //Mostly a port of MrBean's version with better hooks and arguments documentation
 RaceinfoPlayer* LoadCustomLapCount(RaceinfoPlayer* player, u8 id) {
-    const u8 lapCount = KMP::Manager::sInstance->stgiSection->holdersArray[0]->raw->lapCount;
+    //The only place the lap count is decided, so countdown gets its say here rather than
+    //patching Raceinfo afterwards: settings.lapCount, the RaceinfoPlayer and the lapSplits array
+    //it allocates all come out of this one value.
+    const u8 lapCount = Countdown::GetLapCount(
+        KMP::Manager::sInstance->stgiSection->holdersArray[0]->raw->lapCount);
     Racedata::sInstance->racesScenario.settings.lapCount = lapCount;
     return new(player) RaceinfoPlayer(id, lapCount);
 }

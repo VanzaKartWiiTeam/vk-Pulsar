@@ -19,6 +19,10 @@ namespace Debug {
 
 OS::Thread* crashThread = nullptr;
 static u16 crashError = 0;
+//Handed to WriteHeaderCrash by the game and kept here, because the file is built later and the
+//ExceptionFile constructor has no other way of reaching them.
+static u32 crashDsisr = 0;
+static u32 crashDar = 0;
 
 using namespace nw4r;
 
@@ -97,6 +101,10 @@ ExceptionFile::ExceptionFile(const OS::Context& context) : magic('PULD'), region
     }
     this->fpscr.name = 'fscr';
     this->fpscr.fpr = context.fpscr;
+    this->dsisr.name = 'dsis';
+    this->dsisr.gpr = crashDsisr;
+    this->dar.name = 'dar:';
+    this->dar.gpr = crashDar;
     u32* sp = (u32*)context.gpr[1];
     for(int i = 0; i < 10; ++i) {
         if(sp == nullptr || (u32)sp == 0xFFFFFFFF) break;
@@ -108,6 +116,8 @@ ExceptionFile::ExceptionFile(const OS::Context& context) : magic('PULD'), region
 
 static void WriteHeaderCrash(u16 error, const OS::Context* context, u32 dsisr, u32 dar) {
     crashError = error;
+    crashDsisr = dsisr;
+    crashDar = dar;
     crashThread = const_cast<OS::Thread*>(reinterpret_cast<const OS::Thread*>(context));
     db::ExceptionHead& exception = db::ExceptionHead::mInstance;
     exception.displayedInfo = 0x23;

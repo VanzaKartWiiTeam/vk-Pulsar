@@ -1,5 +1,8 @@
 #include <VanzaKart.hpp>
 #include <runtimeWrite.hpp>
+#include <Debug/BetaLog.hpp>
+#include <Race/RoomContext.hpp>
+#include <UI/TransmissionSelect/TransmissionSelect.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/GlobalFunctions.hpp>
 
@@ -31,8 +34,12 @@ namespace Race {
 // Mission Mode Fix flag - set to 1 to disable transmission system
 u16 U16_MISSION_MODE_FIX = 0;
 
+//The rule itself lives in RoomContext, so the select page and this hook can never disagree about
+//where the system is active. When it says no, the hook falls through to the stat block's own kart
+//type, which is exactly what the game would have loaded without us.
+
 static KartType GetCustomKartType(Kart::Link* link) {
-    if(U16_MISSION_MODE_FIX != 1) {
+    if(U16_MISSION_MODE_FIX != 1 && RoomContext::IsTransmissionAllowed()) {
         Racedata* raceData = Racedata::sInstance;
         u8 playerId = link->GetPlayerIdx();
         u8 hudSlotId = raceData->GetHudSlotId(playerId);
@@ -41,9 +48,15 @@ static KartType GetCustomKartType(Kart::Link* link) {
         // Set target angle for proper handling
         link->pointers->values->statsAndBsp.stats->targetAngle = 45;
         
-        // Get transmission setting for this player
-        VanzaKart::Transmission chosenType = 
-            static_cast<VanzaKart::System*>(Pulsar::System::sInstance)->transmissions[hudSlotId];
+        // Local players pick on the transmission select page; CPUs get theirs from the random
+        // assignment in SetCPUKartType, which still lives in System::transmissions.
+        VanzaKart::Transmission chosenType;
+        if(raceData->GetHudSlotId(playerId) <= 3) {
+            chosenType = Pulsar::UI::GetSelectedTransmission(hudSlotId);
+        }
+        else {
+            chosenType = static_cast<VanzaKart::System*>(Pulsar::System::sInstance)->transmissions[hudSlotId];
+        }
         
         if(chosenType == VanzaKart::TRANSMISSION_OUTSIDE) {
             if(link->pointers->values->statsAndBsp.stats->type == KART) {
@@ -62,6 +75,14 @@ static KartType GetCustomKartType(Kart::Link* link) {
 kmBranch(0x80590a10, GetCustomKartType);
 
 static void SetCPUKartType() {
+    if(!RoomContext::IsTransmissionAllowed()) {
+        PUL_BETA_LOG("[Transmission] disabled here (mogi=%d online=%d froom=%d), CPUs left vanilla\n",
+                     (int)RoomContext::IsMogi(), (int)RoomContext::IsOnline(), (int)RoomContext::IsFriendRoom());
+        return;
+    }
+    PUL_BETA_LOG("[Transmission] active (online=%d froom=%d)\n",
+                 (int)RoomContext::IsOnline(), (int)RoomContext::IsFriendRoom());
+
     Random random;
     u8 localPlayerCount = GetLocalPlayerCount();
     
