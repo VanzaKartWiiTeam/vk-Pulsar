@@ -101,3 +101,9 @@ KamekLinker/Kamek.exe
 PulsarEngine/AntiCheat.cpp
 PulsarEngine/AntiCheat.hpp
 PulsarEngine/AntiCheatDiag.cpp
+build/diag/Code.pul
+build/diag/Code.K.map
+.gitignore
+build/diag/Code.J.map
+build/diag/Code.E.map
+Pulsar Pack Creator.sln

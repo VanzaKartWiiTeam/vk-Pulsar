@@ -34,15 +34,15 @@ void SetSelectedTransmission(u32 hudSlotId, VanzaKart::Transmission transmission
     if(hudSlotId < 4) selectedTransmission[hudSlotId] = transmission;
 }
 
-//Button 0 is the left one and carries the Inside label set in SetTransmissionMessages. The
-//order matters in three other places below, so it is stated once here and derived everywhere
-//else: getting it wrong means the page promises one drift type and hands over the other.
+//Button 1 is the upper one and carries Inside, button 0 the lower one with Outside. The order
+//matters in three other places below, so it is stated once here and derived everywhere else:
+//getting it wrong means the page promises one drift type and hands over the other.
 static VanzaKart::Transmission GetTransmissionFromButton(const PushButton& button) {
-    return button.buttonId == 0 ? VanzaKart::TRANSMISSION_INSIDE : VanzaKart::TRANSMISSION_OUTSIDE;
+    return button.buttonId == 0 ? VanzaKart::TRANSMISSION_OUTSIDE : VanzaKart::TRANSMISSION_INSIDE;
 }
 
 static u32 GetButtonForTransmission(VanzaKart::Transmission transmission) {
-    return transmission == VanzaKart::TRANSMISSION_INSIDE ? 0 : 1;
+    return transmission == VanzaKart::TRANSMISSION_OUTSIDE ? 0 : 1;
 }
 
 static bool ShouldSkipTransmissionSelect() {
@@ -55,8 +55,8 @@ static bool ShouldSkipTransmissionSelect() {
 
 static void SetTransmissionMessages(Pages::Menu& menu) {
     menu.titleText->SetMessage(BMG_TRANSMISSION_SELECT);
-    menu.externControls[0]->SetMessage(BMG_INSIDE_TRANSMISSION);
-    menu.externControls[1]->SetMessage(BMG_OUTSIDE_TRANSMISSION);
+    menu.externControls[0]->SetMessage(BMG_OUTSIDE_TRANSMISSION);
+    menu.externControls[1]->SetMessage(BMG_INSIDE_TRANSMISSION);
 }
 
 //The drift page has a third button this page has no use for.
@@ -120,8 +120,8 @@ void TransmissionSelect::OnExternalButtonSelect(PushButton& button, u32) {
         this->bottomText->SetMessage(0);
         return;
     }
-    this->bottomText->SetMessage(button.buttonId == 0 ? BMG_INSIDE_TRANSMISSION_BOTTOM
-                                                      : BMG_OUTSIDE_TRANSMISSION_BOTTOM);
+    this->bottomText->SetMessage(button.buttonId == 0 ? BMG_OUTSIDE_TRANSMISSION_BOTTOM
+                                                      : BMG_INSIDE_TRANSMISSION_BOTTOM);
 }
 
 void TransmissionSelect::OnButtonClick(PushButton& button, u32 hudSlotId) {
