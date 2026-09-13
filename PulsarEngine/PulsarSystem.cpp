@@ -460,7 +460,7 @@ kmWrite32(0x800017D0, 204);   // pack_id
 #else
 kmWrite32(0x800017D0, 104);   // pack_id
 #endif
-kmWrite32(0x800017D4, 131);      // pack_version
+kmWrite32(0x800017D4, 130);      // pack_version
 
 const char System::pulsarString[] = "/Pulsar";
 const char System::CommonAssets[] = "/CommonAssets.szs";

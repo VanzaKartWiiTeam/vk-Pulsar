@@ -190,13 +190,14 @@ enum BMG {
     BMG_KO_RACEEND_QUIT = 0x286b,
     BMG_KO_TIE = 0x286c,
 
-    //Transmission select. These five need matching entries in the pack's Menu.bmg; without them
-    //the page still works but comes up with blank labels.
+    //Transmission select. These five need matching entries in the pack's Common.bmg; without them
+    //the page still works but comes up with blank labels. Inside comes first because it is the
+    //upper button on the page.
     BMG_TRANSMISSION_SELECT = 0x2870,
-    BMG_OUTSIDE_TRANSMISSION = 0x2871,
-    BMG_INSIDE_TRANSMISSION = 0x2872,
-    BMG_OUTSIDE_TRANSMISSION_BOTTOM = 0x2873,
-    BMG_INSIDE_TRANSMISSION_BOTTOM = 0x2874,
+    BMG_INSIDE_TRANSMISSION = 0x2871,
+    BMG_OUTSIDE_TRANSMISSION = 0x2872,
+    BMG_INSIDE_TRANSMISSION_BOTTOM = 0x2873,
+    BMG_OUTSIDE_TRANSMISSION_BOTTOM = 0x2874,
 
     BMG_SETTINGSBUTTON_BOTTOM = 0x2901,
     BMG_TEAMS_BOTTOM = 0x2910,

@@ -7,11 +7,11 @@
 #ifndef WWFC_DOMAIN
 
 #ifdef PROD
-#define WWFC_DOMAIN "sitodaking.it"  // Production server
+#define WWFC_DOMAIN "vanzakart.net"  // Production server
 #elif defined(TEST)
 #define WWFC_DOMAIN "zpltest.xyz"  // Testing server
 #else
-#define WWFC_DOMAIN "sitodaking.it"  // Points to localhost
+#define WWFC_DOMAIN "vanzakart.net"  // Points to localhost
 #endif
 
 #endif
