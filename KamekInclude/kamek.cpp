@@ -36,6 +36,9 @@ static void* BootHookEntry() {
     register void* section;
     asm(mr section, r31;);
     OSReport("[VK] BootHookEntry: starting, %d BootHooks in list\n", (int)BootHook::list.count);
+#ifdef VKDIAG
+    Pulsar::Diag::Step("boot point (normal)", BootHook::executed);
+#endif
     BootHook::Exec();
     OSReport("[VK] BootHookEntry: done\n");
     return section; //replaces the `mr r3, r31` that the hook overwrote

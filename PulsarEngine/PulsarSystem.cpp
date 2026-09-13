@@ -15,6 +15,7 @@
 #include <core/egg/DVD/DvdRipper.hpp>
 #include <UI/ExtendedTeamSelect/ExtendedTeamManager.hpp>
 #include <Debug/Debug.hpp>
+#include <Debug/Diag.hpp>
 namespace Pulsar {
 
 System* System::sInstance = nullptr;
@@ -30,9 +31,14 @@ void System::CreateSystem() {
     }
     else system = new System();
     System::sInstance = system;
+    DIAG_STEP("System created", system);
     UI::ExtendedTeamManager::CreateInstance(new UI::ExtendedTeamManager());
+    DIAG_BEGIN("LoadConfig (Config.pul)", 0);
     ConfigFile& conf = ConfigFile::LoadConfig();
+    DIAG_END();
+    DIAG_BEGIN("System::Init", 0);
     system->Init(conf);
+    DIAG_END();
     prev->BecomeCurrentHeap();
     conf.Destroy();
 }
@@ -86,16 +92,28 @@ void System::Init(const ConfigFile& conf) {
     }
 
     strncpy(this->modFolderName, conf.header.modFolderName, IOS::ipcMaxFileName);
+    DIAG_STEP("probe /dev/dolphin", sDolphinProbe);
+    DIAG_STEP("probe riivo file", sRiivoProbe);
+    DIAG_STEP("IO type chosen", type);
 
     //InitInstances
+    DIAG_BEGIN("CupsConfig", 0);
     CupsConfig::sInstance = new CupsConfig(conf.GetSection<CupsHolder>());
+    DIAG_END();
     this->info.Init(conf.GetSection<InfoHolder>().info);
+    DIAG_BEGIN("InitIO", type);
     this->InitIO(type);
+    DIAG_END();
+    DIAG_BEGIN("InitSettings (Settings.pul)", 0);
     this->InitSettings(&conf.GetSection<CupsHolder>().trophyCount[0]);
+    DIAG_END();
 
     if (IsNewChannel()) {
+        DIAG_BEGIN("NewChannel_Init", *reinterpret_cast<u32*>(RRC_ABI_VERSION_ADDRESS));
         NewChannel_Init();
+        DIAG_END();
     }
+    DIAG_BEGIN("Init rest (cups, BMG, AfterInit)", 0);
 
 
     //Initialize last selected cup and courses
@@ -120,6 +138,7 @@ void System::Init(const ConfigFile& conf) {
     memcpy(this->rawBmg, confBMG, confBMG->fileLength);
     this->customBmgs.Init(*this->rawBmg);
     this->AfterInit();
+    DIAG_END();
 }
 
 //IO
@@ -184,10 +203,14 @@ static void IOSelfTest(IO* io, const char* modFolder) {
 void System::InitIO(IOType type) const {
 
     IO* io = IO::CreateInstance(type, this->heap, this->taskThread);
+    DIAG_STEP("IO created", io);
     bool ret;
     if(io->type == IOType_DOLPHIN) ret = ISFS::CreateDir("/shared2/Pulsar", 0, IOS::MODE_READ_WRITE, IOS::MODE_READ_WRITE, IOS::MODE_READ_WRITE);
     const char* modFolder = this->GetModFolder();
+    DIAG_BEGIN("CreateFolder mod folder", 0);
     ret = io->CreateFolder(modFolder);
+    DIAG_END();
+    DIAG_STEP("mod folder created", ret);
     if(!ret && io->type == IOType_DOLPHIN) {
         char path[0x100];
         snprintf(path, 0x100, "Unable to automatically create a folder for this CT distribution\nPlease create a Pulsar folder in Dolphin Emulator/Wii/shared2", modFolder);
@@ -195,9 +218,13 @@ void System::InitIO(IOType type) const {
     }
     char ghostPath[IOS::ipcMaxPath];
     snprintf(ghostPath, IOS::ipcMaxPath, "%s%s", modFolder, "/Ghosts");
+    DIAG_BEGIN("CreateFolder Ghosts", 0);
     io->CreateFolder(ghostPath);
+    DIAG_END();
 #if PULSAR_IO_SELFTEST
+    DIAG_BEGIN("IOSelfTest", 0);
     IOSelfTest(io, modFolder);
+    DIAG_END();
 #endif
 }
 #pragma suppress_warnings reset

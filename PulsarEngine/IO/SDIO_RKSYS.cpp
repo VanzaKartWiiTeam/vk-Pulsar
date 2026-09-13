@@ -56,6 +56,9 @@ char GetRegion() {
 static bool IsRKSYSRedirectionReady() {
     if(!IsNewChannel()) return false;
     if(IO::sInstance == nullptr) {
+#ifdef VKDIAG
+        if(!BootHook::executed) Pulsar::Diag::Step("boot point (RKSYS read)", 0);
+#endif
         BootHook::Exec();
         if(IO::sInstance == nullptr) {
             OS::Report("[VK] RKSYS: IO not initialised, falling back to the NAND save\n");
