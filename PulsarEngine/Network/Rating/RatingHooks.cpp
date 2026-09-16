@@ -6,6 +6,7 @@
 #include <Network/Rating/RatingNetwork.hpp>
 #include <Network/Rating/RankManager.hpp>
 #include <Network/Rating/RatingConfig.hpp>
+#include <Network/Rating/StaffBadge.hpp>
 #include <PulsarSystem.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
@@ -80,8 +81,13 @@ static void ApplyRankIcon() {
     if (rank > Config::MAX_RANK) rank = Config::MAX_RANK;
 
     // The index is the rank itself: the pack maps BMG RANK_BMG_BASE + N to the badge glyph
-    // BADGE_GLYPH_BASE + N, and rank 0 falls on the vanilla blank at index 0.
-    const u32 instruction = 0x38600000 | ((u32)rank & 0xFFFF);  // li r3, rank
+    // BADGE_GLYPH_BASE + N, and rank 0 falls on the vanilla blank at index 0. A staff
+    // member's badge takes the icon over, as Retro Rewind does with its special badges:
+    // index STAFF_ICON_BASE + role, which lands on glyph STAFF_GLYPH_BASE + role.
+    u32 index = rank;
+    const Staff::Role role = Staff::GetLocal(0);
+    if (role != Staff::ROLE_NONE) index = Config::STAFF_ICON_BASE + role;
+    const u32 instruction = 0x38600000 | (index & 0xFFFF);  // li r3, index
 
     // The addresses have to be the literals the kmRuntimeUse above declared: the macro
     // pastes them into identifiers, so a named constant will not compile.
@@ -90,6 +96,10 @@ static void ApplyRankIcon() {
     kmRuntimeWrite32A(0x806436fc, instruction);
 }
 static SectionLoadHook rankIconHook(ApplyRankIcon);
+
+// SetRankBMG's first instruction is the bound it checks the index against, 12 in vanilla
+// (li r6, 12). Raised so the staff indices past it are not turned into "no icon".
+kmWrite32(0x805e3d48, 0x38C00000 | Config::RANK_ICON_INDEX_CAP);  // li r6, cap
 #endif
 
 // --------------------------------------------------------------- licence mirror

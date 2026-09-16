@@ -46,18 +46,10 @@ void fillLeaderboardResults(int count, CtrlRaceResult** results) {
             if (displayLeaderboardType == LEADERBOARD_DISPLAY_TIMES) {
                 results[i]->FillFinishTime(playerId);
             } else if (displayLeaderboardType == LEADERBOARD_DISPLAY_NAMES) {
+                // No badge in the name here: this row already draws the rank icon
+                // (OnlineParams::rankBMG), which carries the staff badge in place of the
+                // rank, and a prefixed name showed the same badge twice.
                 results[i]->FillName(playerId);
-                // Prefix the prestige badge after FillName, which rewrites the pane
-                // from scratch and would otherwise drop it.
-                nw4r::lyt::TextBox* name =
-                    static_cast<nw4r::lyt::TextBox*>(results[i]->layout.GetPaneByName("player_name"));
-                if (name != nullptr && name->stringBuf != nullptr) {
-                    wchar_t rankedName[64];
-                    const PointRating::RankId rank = PointRating::Rank::GetForPlayer(playerId);
-                    if (PointRating::Rank::PrefixWithBadge(rank, name->stringBuf, rankedName, 64)) {
-                        name->SetString(rankedName, 0);
-                    }
-                }
             } else if (displayLeaderboardType == LEADERBOARD_DISPLAY_FC) {
                 if (playerId < 12) {
                     u8 aid = RKNet::Controller::sInstance->aidsBelongingToPlayerIds[playerId];

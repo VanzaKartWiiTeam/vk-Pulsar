@@ -44,9 +44,11 @@ wchar_t GetBadgeGlyph(RankId rank);
 // characters written, terminator excluded.
 u32 FormatLabel(RankId rank, wchar_t* dst, u32 dstLen);
 
-// Writes "<badge><space><name>" into dst.  Returns false and leaves dst untouched
-// when the rank draws no badge or the name does not fit.
-bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen);
+bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen, wchar_t staffGlyph = 0);
+
+// "<staff><rank> <Mii name>" for a player of the current race, ready for BMG_TEXT.
+// Returns false when the player has no badge at all or no Mii.
+bool ComposeRaceName(u8 playerId, wchar_t* dst, u32 dstLen);
 
 }  // namespace Rank
 }  // namespace PointRating

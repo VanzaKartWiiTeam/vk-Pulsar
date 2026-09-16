@@ -11,6 +11,7 @@
 #include <Network/Rating/PlayerRating.hpp>
 #include <Network/Rating/RankManager.hpp>
 #include <Network/Rating/RatingConfig.hpp>
+#include <Network/Rating/StaffBadge.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <include/c_wchar.h>
 
@@ -106,19 +107,25 @@ static RankId GetEntryRank(const Pages::SELECTStageMgr* mgr, u32 playerId, bool 
 */
 static wchar_t sRankedNames[12][32];
 
+static wchar_t GetEntryStaffGlyph(const Pages::SELECTStageMgr* mgr, u32 playerId, bool isLocal) {
+    const u8 slot = mgr->infos[playerId].hudSlotid;
+    const Staff::Role role = isLocal ? Staff::GetLocal(slot) : Staff::GetRemote(mgr->infos[playerId].aid, slot);
+    return Staff::GetBadgeGlyph(role);
+}
+
 static void SetNameWithRank(LayoutUIControl& ctrl, Pages::SELECTStageMgr* mgr, u32 idx, u32 playerId,
-                            RankId rank) {
+                            RankId rank, wchar_t staffGlyph) {
     Text::Info nameInfo;
     nameInfo.miis[0] = mgr->miiGroup.GetMii((u8)playerId);
 
     const Mii* mii = nameInfo.miis[0];
-    if (rank == 0 || idx >= 12 || mii == nullptr) {
+    if ((rank == 0 && staffGlyph == 0) || idx >= 12 || mii == nullptr) {
         ctrl.SetTextBoxMessage("mii_name", 0x251d, &nameInfo);
         return;
     }
 
     wchar_t* dst = sRankedNames[idx];
-    if (!Rank::PrefixWithBadge(rank, mii->info.name, dst, 32)) {
+    if (!Rank::PrefixWithBadge(rank, mii->info.name, dst, 32, staffGlyph)) {
         ctrl.SetTextBoxMessage("mii_name", 0x251d, &nameInfo);
         return;
     }
@@ -160,7 +167,8 @@ static void FillVRControl(Pages::VR* page, u32 idx, u32 playerId, u32 team, u8 t
         ctrl.SetMiiPane("chara_icon", mgr->miiGroup, playerId, 2);
         ctrl.SetMiiPane("chara_icon_sha", mgr->miiGroup, playerId, 2);
         
-        SetNameWithRank(ctrl, mgr, idx, playerId, GetEntryRank(mgr, playerId, isLocal));
+        SetNameWithRank(ctrl, mgr, idx, playerId, GetEntryRank(mgr, playerId, isLocal),
+                        GetEntryStaffGlyph(mgr, playerId, isLocal));
 
         wchar_t buf[64];
         Text::Info ptsInfo;

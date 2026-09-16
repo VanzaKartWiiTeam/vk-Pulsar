@@ -4,6 +4,9 @@
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
+#include <MarioKartWii/UI/Section/SectionMgr.hpp>
+#include <MarioKartWii/Mii/MiiGroup.hpp>
+#include <Network/Rating/StaffBadge.hpp>
 
 namespace Pulsar {
 namespace PointRating {
@@ -99,22 +102,24 @@ u32 FormatLabel(RankId rank, wchar_t* dst, u32 dstLen) {
     return 1;
 }
 
-/*
-    Two forms, picked by RATING_BADGE_USES_GLYPH: "<glyph> Name" when the font carries
-    the badge glyphs, "[N] Name" otherwise.  Both are a fixed-width prefix followed by
-    the name, so the copy below is shared.
-*/
-bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen) {
-    if (rank == 0 || rank > Config::MAX_RANK || name == nullptr || dst == nullptr) return false;
+
+bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen, wchar_t staffGlyph) {
+    if (name == nullptr || dst == nullptr) return false;
+    if (rank > Config::MAX_RANK) rank = 0;
 
 #if RATING_BADGE_USES_GLYPH
     const wchar_t glyph = GetBadgeGlyph(rank);
-    if (glyph == 0) return false;
-    const u32 prefixLen = 2;
+    if (glyph == 0 && staffGlyph == 0) return false;
+    wchar_t prefix[3];
+    u32 prefixLen = 0;
+    if (staffGlyph != 0) prefix[prefixLen++] = staffGlyph;
+    if (glyph != 0) prefix[prefixLen++] = glyph;
+    prefix[prefixLen++] = L' ';
     if (dstLen < prefixLen + 2) return false;
-    dst[0] = glyph;
-    dst[1] = L' ';
+    for (u32 i = 0; i < prefixLen; ++i) dst[i] = prefix[i];
 #else
+    (void)staffGlyph;
+    if (rank == 0) return false;
     // Ranks past 9 would need a second digit; MAX_RANK is 8, so one is enough.
     const u32 prefixLen = 4;
     if (dstLen < prefixLen + 2) return false;
@@ -132,6 +137,23 @@ bool PrefixWithBadge(RankId rank, const wchar_t* name, wchar_t* dst, u32 dstLen)
     }
     dst[i + prefixLen] = L'\0';
     return true;
+}
+
+/*
+    The name comes from the Mii, not from the pane: the pane holds the message FillName or
+    UpdateInfo set, which is an escape sequence asking for "the Mii name", not the name.
+    Copied into a BMG_TEXT string, that escape resolves without its Mii and comes out as
+    some default Mii's name.
+*/
+bool ComposeRaceName(u8 playerId, wchar_t* dst, u32 dstLen) {
+    if (playerId >= 12) return false;
+    const SectionMgr* sectionMgr = SectionMgr::sInstance;
+    if (sectionMgr == nullptr || sectionMgr->sectionParams == nullptr) return false;
+    const Mii* mii = sectionMgr->sectionParams->playerMiis.GetMii(playerId);
+    if (mii == nullptr) return false;
+
+    const wchar_t staff = Staff::GetBadgeGlyph(Staff::GetForPlayer(playerId));
+    return PrefixWithBadge(GetForPlayer(playerId), mii->info.name, dst, dstLen, staff);
 }
 
 }  // namespace Rank

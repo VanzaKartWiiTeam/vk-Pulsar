@@ -19,15 +19,13 @@ static const u16 MAX_RATING = 5000;  // 500000 displayed VR
 static const float DEFAULT_RATING = 50.0f;  // 5000 displayed VR
 
 // ------------------------------------------------------------------ rank tiers
-// Promotion every RANK_STEP, and a rank is only lost after falling DERANK_MARGIN
-// below its own threshold.  Raising MAX_RANK is enough to add new tiers, provided
-// the matching badge glyphs exist in the fonts.
 static const u8 MAX_RANK = 8;
 static const float RANK_STEP = 250.0f;  // 25000 displayed VR
 static const float DERANK_MARGIN = 5.0f;  // 500 displayed VR
 
 // Rank N is drawn as the private-use glyph BADGE_GLYPH_BASE + N.  Rank 0 draws nothing.
 static const wchar_t BADGE_GLYPH_BASE = 0xF07C;
+static const wchar_t STAFF_GLYPH_BASE = 0xF084;
 
 /*
     Whether a rank drawn inside a text string uses the badge glyph or the plain digit.
@@ -85,6 +83,12 @@ static const wchar_t BADGE_GLYPH_BASE = 0xF07C;
 */
 static const u32 RANK_BMG_BASE = 0x25EE;
 static const u32 RANK_BMG_VANILLA_COUNT = 12;  // wheelType 0-2 x starRank 0-3, and the hard cap
+
+// A staff member sends STAFF_ICON_BASE + role instead of the rank (RatingHooks), 9..14,
+// so RaceAssets maps BMG RANK_BMG_BASE + 9 .. + 14 to the glyphs 0xF085 .. 0xF08A, and
+// SetRankBMG's bound is raised from 12 to RANK_ICON_INDEX_CAP to let them through.
+static const u32 STAFF_ICON_BASE = MAX_RANK;
+static const u32 RANK_ICON_INDEX_CAP = 15;
 
 #define RATING_RANK_ICON 1
 

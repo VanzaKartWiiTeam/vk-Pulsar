@@ -198,28 +198,11 @@ kmCall(0x807eaf1c, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 kmCall(0x807eb9d4, CtrlRace2DMapCharacter_PlayAnimationAtFrameAndDisable);
 
 /*
-    The parameter is the local HUD slot, not the player whose name is on screen; that
-    one is nameSlotId. Using the parameter for the badge handed it to the wrong player.
-
-    The badge is applied after UpdateInfo, which rewrites the pane and would otherwise
-    wipe it. The extended team colouring below deliberately still keys off hudSlotId,
-    exactly as before this change, so that feature keeps its current behaviour.
+    The extended team colouring keys off hudSlotId, exactly as before the badges; the
+    badges themselves are applied in CtrlRaceNameBalloon_SetName below.
 */
 void CtrlRaceNameBalloon_refresh(CtrlRaceNameBalloon* _this, u8 hudSlotId) {
     _this->UpdateInfo(hudSlotId);
-
-    const u32 displayedPlayerId = _this->nameSlotId;
-    if (displayedPlayerId < 12) {
-        nw4r::lyt::TextBox* name =
-            static_cast<nw4r::lyt::TextBox*>(_this->layout.GetPaneByName("chara_name"));
-        if (name != nullptr && name->stringBuf != nullptr) {
-            wchar_t rankedName[64];
-            const PointRating::RankId rank = PointRating::Rank::GetForPlayer((u8)displayedPlayerId);
-            if (PointRating::Rank::PrefixWithBadge(rank, name->stringBuf, rankedName, 64)) {
-                name->SetString(rankedName, 0);
-            }
-        }
-    }
 
     const u8 playerId = hudSlotId;
     if (ExtendedTeamManager::IsActivated()) {
@@ -249,6 +232,36 @@ void CtrlRaceNameBalloon_PlayAnimationAtFrameAndDisable(AnimationGroup* _this, u
         _this->PlayAnimationAtFrameAndDisable(id, frame);
     }
 }
+
+/*
+    Rank and staff badges on the name above each kart.
+
+    UpdateInfo writes the name with two SetTextBoxMessage calls, and those are replaced
+    here (the same two call sites Retro Rewind hooks for its custom character names), so
+    the badge goes in whenever the game sets the name: at load and on every refresh.
+    Hooking only CtrlRaceNameBalloon_refresh missed a balloon that shows the same player
+    from the start, which in a 2-player room is every one of them.
+
+    Only a message that carries a Mii gets a badge (the balloon does not necessarily use
+    0x251d for it); a character name ("Mario") has none and is left alone. The name is
+    rebuilt from the Mii as one BMG_TEXT string, see Rank::ComposeRaceName. The control
+    keeps the displayed player at 0x178, nameSlotId.
+*/
+static wchar_t sBalloonNames[12][64];
+
+void CtrlRaceNameBalloon_SetName(CtrlRaceNameBalloon* _this, const char* paneName, u32 bmgId, const Text::Info* info) {
+    const u32 playerId = _this->nameSlotId;
+    if (info != nullptr && info->miis[0] != nullptr && playerId < 12 &&
+        PointRating::Rank::ComposeRaceName((u8)playerId, sBalloonNames[playerId], 64)) {
+        Text::Info rankedInfo;
+        rankedInfo.strings[0] = sBalloonNames[playerId];
+        _this->SetTextBoxMessage(paneName, BMG_TEXT, &rankedInfo);
+        return;
+    }
+    _this->SetTextBoxMessage(paneName, bmgId, info);
+}
+kmCall(0x807f0580, CtrlRaceNameBalloon_SetName);
+kmCall(0x807f06b0, CtrlRaceNameBalloon_SetName);
 
 kmCall(0x807f0c48, CtrlRaceNameBalloon_refresh);
 kmCall(0x807f00f8, CtrlRaceNameBalloon_PlayAnimationAtFrameAndDisable);

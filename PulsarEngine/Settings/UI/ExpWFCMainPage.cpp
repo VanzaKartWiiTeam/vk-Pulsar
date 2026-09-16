@@ -7,6 +7,7 @@
 #include <UI/PlayerCount.hpp>
 #include <Network/Rating/PlayerRating.hpp>
 #include <Network/Rating/RankManager.hpp>
+#include <Network/Rating/StaffBadge.hpp>
 #include <Network/Network.hpp>
 
 namespace Pulsar {
@@ -90,10 +91,15 @@ void ExpWFCMain::BeforeControlUpdate() {
     static const wchar_t rankPrefix[] = L"Rank: ";
     wchar_t rankText[16];
     u32 len = 0;
-    while (rankPrefix[len] != L'\0') {
-        rankText[len] = rankPrefix[len];
-        ++len;
+
+    // A contributor's staff badge leads the label; it is not part of the rank.
+    const wchar_t staff = PointRating::Staff::GetBadgeGlyph(PointRating::Staff::GetLocal(0));
+    if (staff != 0) {
+        rankText[len++] = staff;
+        rankText[len++] = L' ';
     }
+
+    for (u32 i = 0; rankPrefix[i] != L'\0'; ++i) rankText[len++] = rankPrefix[i];
     len += PointRating::Rank::FormatLabel(rank, &rankText[len], 16 - len);
     rankText[len] = L'\0';
 
