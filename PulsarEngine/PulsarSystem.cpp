@@ -33,6 +33,7 @@ void System::CreateSystem() {
     System::sInstance = system;
     DIAG_STEP("System created", system);
     UI::ExtendedTeamManager::CreateInstance(new UI::ExtendedTeamManager());
+    DIAG_HEAP("free system, System created");
     DIAG_BEGIN("LoadConfig (Config.pul)", 0);
     ConfigFile& conf = ConfigFile::LoadConfig();
     DIAG_END();
@@ -107,6 +108,7 @@ void System::Init(const ConfigFile& conf) {
     DIAG_BEGIN("InitSettings (Settings.pul)", 0);
     this->InitSettings(&conf.GetSection<CupsHolder>().trophyCount[0]);
     DIAG_END();
+    DIAG_HEAP("free system");
 
     if (IsNewChannel()) {
         DIAG_BEGIN("NewChannel_Init", *reinterpret_cast<u32*>(RRC_ABI_VERSION_ADDRESS));
@@ -139,6 +141,7 @@ void System::Init(const ConfigFile& conf) {
     this->customBmgs.Init(*this->rawBmg);
     this->AfterInit();
     DIAG_END();
+    DIAG_HEAP("free system, Init done");
 }
 
 //IO
