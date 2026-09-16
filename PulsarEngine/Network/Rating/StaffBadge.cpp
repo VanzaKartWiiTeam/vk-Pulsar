@@ -31,7 +31,7 @@ static const Member sMembers[] = {
     { 10010100ULL, ROLE_DEVELOPER },
     { 443381631713ULL, ROLE_DEVELOPER },
     { 271582939761ULL, ROLE_STAFF_GHOST },
-    { 56834575116ULL, ROLE_STAFF_GHOST },
+    { 305544760230ULL, ROLE_STAFF_GHOST },
     { 0ULL, ROLE_NONE }  // terminator, keeps the array non-empty
 };
 
