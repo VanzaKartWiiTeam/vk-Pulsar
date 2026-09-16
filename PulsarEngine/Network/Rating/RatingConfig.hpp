@@ -134,7 +134,7 @@ static const int QR2_KEY_BR = 0x66;
 static const int QR2_MIN = 1;
 static const int QR2_MAX = 500000;
 
-static const char* const MULTIPLIER_URL = "http://api.vanzakart.net:8000/VanzaKart/multiplier.txt";
+static const char* const MULTIPLIER_URL = "http://vanzakart.net:8000/VanzaKart/multiplier.txt";
 static const float MULTIPLIER_MIN = 0.0f;
 static const float MULTIPLIER_MAX = 100.0f;
 static const float MULTIPLIER_DEFAULT = 1.0f;
@@ -164,7 +164,7 @@ static const float MULTIPLIER = 1.0f;
 #define RATING_SYNC_ENABLED 0
 static const char* const SYNC_REPORT_KEY = "wl:mkw_vrbr";
 // Answers with {"found":1,"vr":<rating*100>,"br":<rating*100>} for the given profile.
-static const char* const SYNC_DOWNLOAD_URL_FORMAT = "http://api.vanzakart.net:8000/VanzaKart/api/ratings?pid=%ld";
+static const char* const SYNC_DOWNLOAD_URL_FORMAT = "http://vanzakart.net:8000/VanzaKart/api/ratings?pid=%ld";
 static const u32 SYNC_RESPONSE_MAX = 256;
 
 // -------------------------------------------------------------------- storage

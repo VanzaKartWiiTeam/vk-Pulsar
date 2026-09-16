@@ -126,7 +126,7 @@ static void WriteHeaderCrash(u16 error, const OS::Context* context, u32 dsisr, u
 
 #ifdef VKDIAG
     //The diagnostic build always shows the screen, the channel's own crash report included.
-    Diag::PrintOnExceptionScreen();
+    Diag::PrintOnExceptionScreen(error, context, dsisr, dar);
     db::PrintContext_(error, context, dsisr, dar);
 #else
     if (IsNewChannel() && !Dolphin::IsEmulator()) {

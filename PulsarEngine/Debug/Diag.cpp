@@ -40,12 +40,16 @@ struct OpenStep {
     u32 startMs;
 };
 
-static const u32 trailSize = 64;
+static const u32 trailSize = 128;
 static const u32 maxOpen = 8;
 static const u32 openStepTimeoutMs = 45000;
 //Race and menu scene loads block the main thread, and a slow SD makes them long.
 static const u32 frameTimeoutMs = 60000;
 static const u32 menuTimeoutMs = 240000;
+//An exception raised before the game has a picture on screen leaves the exception console
+//drawing into nothing: a black screen. OSFatal sets the video up by itself, so if A was not
+//pressed after this long the crash is shown again through it.
+static const u32 crashScreenFallbackMs = 20000;
 //The frame check only arms after the counter was seen moving this many times in a row, so a
 //field that turns out not to be a frame counter can never trigger it.
 static const u32 framesToArm = 120;
@@ -59,6 +63,14 @@ static u32 lastProgressMs = 0;
 static u64 startTime = 0;
 static bool started = false;
 static bool crashed = false;
+static bool crashAcknowledged = false;
+static u32 crashMs = 0;
+static u16 crashError = 0;
+static u32 crashSrr0 = 0;
+static u32 crashLr = 0;
+static u32 crashSp = 0;
+static u32 crashDsisr = 0;
+static u32 crashDar = 0;
 static bool fired = false;
 
 static u32 frameCount = 0;
@@ -128,6 +140,24 @@ static bool IsRamPointer(u32 address) {
     return (address >= 0x80000000 && address < 0x81800000) || (address >= 0x90000000 && address < 0x94000000);
 }
 
+//Code.pul, System and every Pulsar object already live in the system heap, which is small. The
+//diagnostics must not make it any fuller than the build being diagnosed, so they use MEM2.
+static EGG::Heap* DiagHeap() {
+    EGG::Heap* heap = RKSystem::mInstance.EGGRootMEM2;
+    if(heap == nullptr) heap = RKSystem::mInstance.EGGSystem;
+    return heap;
+}
+
+static u32 FreeSize(EGG::ExpHeap* heap) {
+    if(heap == nullptr || !IsRamPointer((u32)heap)) return 0xFFFFFFFF;
+    return heap->getTotalFreeSize();
+}
+
+void HeapStep(const char* name) {
+    if(crashed) return;
+    Step(name, FreeSize(RKSystem::mInstance.EGGSystem));
+}
+
 static const char* IOTypeName() {
     const IO* io = IO::sInstance;
     if(io == nullptr) return "none";
@@ -175,6 +205,15 @@ static void AppendTrail(Text& t, u32 maxEntries) {
 
 //Every thread the OS knows about, with where it is parked. A thread that is not running has its
 //registers saved in its context, so the pc and the back chain say what it is waiting on.
+static void AppendBackChain(Text& t, u32 sp, u32 frames) {
+    for(u32 frame = 0; frame < frames && IsRamPointer(sp); ++frame) {
+        const u32 next = *reinterpret_cast<u32*>(sp);
+        if(!IsRamPointer(next) || next <= sp) break;
+        APPEND(t, " %08X", *reinterpret_cast<u32*>(next + 4));
+        sp = next;
+    }
+}
+
 static void AppendThreads(Text& t, u32 maxThreads, u32 frames) {
     const OS::Thread* self = OS::Thread::current;
     const OS::Thread* thread = *reinterpret_cast<OS::Thread**>(0x800000DC);
@@ -182,16 +221,17 @@ static void AppendThreads(Text& t, u32 maxThreads, u32 frames) {
         const OS::Context& context = thread->context;
         APPEND(t, "%08X s%u p%u pc %08X lr %08X%s", (u32)thread, thread->state, thread->priority,
                context.srr0, context.lr, thread == self ? " (watchdog)" : "");
-        u32 sp = context.gpr[1];
-        for(u32 frame = 0; frame < frames && IsRamPointer(sp); ++frame) {
-            const u32 next = *reinterpret_cast<u32*>(sp);
-            if(!IsRamPointer(next) || next <= sp) break;
-            APPEND(t, " %08X", *reinterpret_cast<u32*>(next + 4));
-            sp = next;
-        }
+        AppendBackChain(t, context.gpr[1], frames);
         APPEND(t, "\n");
         thread = thread->activeThreads.next;
     }
+}
+
+static void AppendCrash(Text& t) {
+    APPEND(t, "exc %u srr0 %08X lr %08X dsisr %08X dar %08X\ntrace:", crashError, crashSrr0, crashLr, crashDsisr,
+           crashDar);
+    AppendBackChain(t, crashSp, 8);
+    APPEND(t, "\n");
 }
 
 static void Fire(const char* reason) {
@@ -199,9 +239,10 @@ static void Fire(const char* reason) {
     Text t = { screenBuffer, sizeof(screenBuffer), 0 };
     APPEND(t, "VanzaKart DIAG - %s\nPhoto this screen and send it to the devs.\n", reason);
     AppendInfo(t);
+    if(crashed) AppendCrash(t);
     AppendOpenSteps(t);
     AppendTrail(t, 8);
-    AppendThreads(t, 8, 3);
+    AppendThreads(t, crashed ? 5 : 8, 3);
     OS::Report("%s", screenBuffer);
     GX::Color fg;
     fg.rgba = 0xFFFFFFFF;
@@ -222,8 +263,12 @@ static void WatchdogLoop(void*) {
     u32 consecutive = 0;
     for(;;) {
         VIWaitForRetrace();
-        if(crashed || fired) continue;
+        if(fired) continue;
         const u32 now = Now();
+        if(crashed) {
+            if(!crashAcknowledged && now - crashMs > crashScreenFallbackMs) Fire("CRASH (A not pressed in 20s)");
+            continue;
+        }
         const u32 frame = ReadFrameCount();
         frameCount = frame;
         if(frame != lastFrame) {
@@ -249,7 +294,15 @@ void Start() {
     started = true;
     Now();
     Step("diag start, thread", (u32)OS::Thread::current);
-    EGG::Heap* heap = RKSystem::mInstance.EGGSystem;
+    const EGG::TSystem& rk = RKSystem::mInstance;
+    Step("MEM1 arena lo", (u32)rk.MEM1ArenaLo);
+    Step("MEM1 arena hi", (u32)rk.MEM1ArenaHi);
+    Step("MEM2 arena hi", (u32)rk.MEM2ArenaHi);
+    Step("system heap", (u32)rk.EGGSystem);
+    HeapStep("free system");
+    Step("free mem1 root", FreeSize(rk.EGGRootMEM1));
+    Step("free mem2 root", FreeSize(rk.EGGRootMEM2));
+    EGG::Heap* heap = DiagHeap();
     reportBuffer = EGG::Heap::alloc<char>(reportSize, 0x20, heap);
     EGG::TaskThread* watchdog = EGG::TaskThread::Create(2, 0, 0x2000, heap);
     if(watchdog == nullptr) {
@@ -258,9 +311,23 @@ void Start() {
     }
     watchdog->Request(&WatchdogLoop, (void*)0, 0);
     Step("watchdog created", (u32)watchdog);
+#ifdef VKDIAG_PROBE
+    //Stops on purpose at the first line of Pulsar code: a blue screen here proves Riivolution,
+    //the loader and Code.pul all work, a black one puts the problem before Pulsar.
+    Fire("PROBE OK: Pulsar code is running");
+#endif
 }
 
-void PrintOnExceptionScreen() {
+void PrintOnExceptionScreen(u16 error, const OS::Context* context, u32 dsisr, u32 dar) {
+    crashError = error;
+    if(context != nullptr) {
+        crashSrr0 = context->srr0;
+        crashLr = context->lr;
+        crashSp = context->gpr[1];
+    }
+    crashDsisr = dsisr;
+    crashDar = dar;
+    crashMs = Now();
     crashed = true;
     Text t = { screenBuffer, sizeof(screenBuffer), 0 };
     APPEND(t, "VK DIAG: photo this, then A. Send Crash.pul+Diag.txt\n");
@@ -279,20 +346,28 @@ void PrintOnExceptionScreen() {
 }
 
 static void AppendHeap(Text& t, const char* name, EGG::ExpHeap* heap) {
-    if(heap == nullptr || !IsRamPointer((u32)heap)) APPEND(t, " %s -", name);
-    else APPEND(t, " %s %u", name, heap->getTotalFreeSize());
+    APPEND(t, " %s %u", name, FreeSize(heap));
+}
+
+static void CreateReportIO() {
+    const System* system = System::sInstance;
+    if(reportIO != nullptr || system == nullptr || IO::sInstance == nullptr) return;
+    reportIO = IO::CreatePrivateInstance(IO::sInstance->type, DiagHeap(), system->taskThread);
 }
 
 void WriteReportFile(const char* reason) {
+    if(crashed) crashAcknowledged = true;
     const System* system = System::sInstance;
     if(reportBuffer == nullptr || system == nullptr || IO::sInstance == nullptr) return;
-    if(reportIO == nullptr) reportIO = IO::CreatePrivateInstance(IO::sInstance->type, system->heap, system->taskThread);
+    //Allocating inside the crash handler could wait forever on a heap lock the crashed thread holds.
+    if(reportIO == nullptr && !crashed) CreateReportIO();
     if(reportIO == nullptr) return;
 
     Text t = { reportBuffer, reportSize, 0 };
     APPEND(t, "VanzaKart diagnostic report\nreason: %s\npack id %u version %u\n", reason,
            *reinterpret_cast<u32*>(0x800017D0), *reinterpret_cast<u32*>(0x800017D4));
     AppendInfo(t);
+    if(crashed) AppendCrash(t);
     APPEND(t, "channel abi %08X flags %02X, mem1 %08X mem2 %08X, riivo/dolphin io %s\n",
            *reinterpret_cast<u32*>(RRC_ABI_VERSION_ADDRESS), *reinterpret_cast<u8*>(RRC_BITFLAGS_ADDRESS),
            *reinterpret_cast<u32*>(0x80000028), *reinterpret_cast<u32*>(0x80003118), IOTypeName());
@@ -328,6 +403,8 @@ static void OnSectionLoad() {
     sectionId = sectionMgr->curSection->sectionId;
     ++sectionLoads;
     Step("section", sectionId);
+    HeapStep("free system");
+    CreateReportIO();
     if(!menuReached && sectionId >= SECTION_MAIN_MENU_FROM_BOOT && sectionId <= SECTION_MAIN_MENU_FROM_LICENSE) {
         menuReached = true;
         WriteReportFile("main menu reached, boot OK");

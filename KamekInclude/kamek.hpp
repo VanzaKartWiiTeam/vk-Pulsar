@@ -280,6 +280,7 @@ void Start();
 void Step(const char* name, u32 value);
 void Begin(const char* name, u32 value);
 void End();
+void HeapStep(const char* name);
 }}
 #endif
 
@@ -324,6 +325,7 @@ public:
             cur->func();
 #ifdef VKDIAG
             Pulsar::Diag::End();
+            Pulsar::Diag::HeapStep("free system");
 #endif
             next = (BootHook*)nw4r::ut::List_GetNext(&list, cur);
         }
