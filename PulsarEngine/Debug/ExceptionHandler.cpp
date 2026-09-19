@@ -9,6 +9,7 @@
 #include <core/egg/Exception.hpp>
 #include <Debug/Debug.hpp>
 #include <Debug/CrashExtra.hpp>
+#include <Debug/Diag.hpp>
 #include <PulsarSystem.hpp>
 #include <IO/IO.hpp>
 #include <VanzaKartChannel.hpp>
@@ -123,6 +124,11 @@ static void WriteHeaderCrash(u16 error, const OS::Context* context, u32 dsisr, u
     exception.displayedInfo = 0x23;
     exception.callbackArgs = nullptr;
 
+#ifdef VKDIAG
+    //The diagnostic build always shows the screen, the channel's own crash report included.
+    Diag::PrintOnExceptionScreen(error, context, dsisr, dar);
+    db::PrintContext_(error, context, dsisr, dar);
+#else
     if (IsNewChannel() && !Dolphin::IsEmulator()) {
         db::DirectPrint_ChangeXfb((void*)0, 0, 0);
         NewChannel_WriteCrashEphFile();
@@ -130,6 +136,7 @@ static void WriteHeaderCrash(u16 error, const OS::Context* context, u32 dsisr, u
         db::Exception_Printf_("Press A to exit. Send crash.pul to the creator.");
         db::PrintContext_(error, context, dsisr, dar);
     }
+#endif
 }
 kmCall(0x80023484, WriteHeaderCrash);
 
@@ -187,6 +194,9 @@ static void CreateCrashFile(s32 channel, KPAD::Status buff[], u32 count) {
             io->CreateAndOpen(path, IOS::MODE_READ_WRITE);
             io->Overwrite(sizeof(ExceptionFile), &exception);
             io->Close();
+#ifdef VKDIAG
+            Diag::WriteReportFile("CRASH");
+#endif
         }
     }
     if(exit) LaunchSoftware();

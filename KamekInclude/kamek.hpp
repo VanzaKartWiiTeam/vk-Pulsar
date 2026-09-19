@@ -274,6 +274,16 @@ class SectionLoadHook {
     }
 };
 
+#ifdef VKDIAG
+namespace Pulsar { namespace Diag {
+void Start();
+void Step(const char* name, u32 value);
+void Begin(const char* name, u32 value);
+void End();
+void HeapStep(const char* name);
+}}
+#endif
+
 //REL has NOT loaded yet, so do NOT do anything with REL addr, it will not work
 class BootHook {
 public:
@@ -301,12 +311,27 @@ public:
     static void Exec() {
         if(executed) return;
         executed = true;
+#ifdef VKDIAG
+        Pulsar::Diag::Start();
+        Pulsar::Diag::Begin("BootHooks", list.count);
+#endif
         BootHook* next = nullptr;
         BootHook* cur = (BootHook*)nw4r::ut::List_GetNth(&list, 0);
         for(cur; cur != nullptr; cur = next) {
+#ifdef VKDIAG
+            //func is a code address: subtract "base" and look it up in Code.P.map.
+            Pulsar::Diag::Begin("BootHook", (u32)cur->func);
+#endif
             cur->func();
+#ifdef VKDIAG
+            Pulsar::Diag::End();
+            Pulsar::Diag::HeapStep("free system");
+#endif
             next = (BootHook*)nw4r::ut::List_GetNext(&list, cur);
         }
+#ifdef VKDIAG
+        Pulsar::Diag::End();
+#endif
     }
 };
 #endif

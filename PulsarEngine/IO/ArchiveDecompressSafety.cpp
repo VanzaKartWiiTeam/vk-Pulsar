@@ -21,6 +21,9 @@ static void EnsureBootHooksRan() {
     OS::Report("[VK] boot point skipped: running the BootHooks from the fallback (%d in list)\n",
                (int)BootHook::list.count);
     BootHook::executedFromFallback = true;
+#ifdef VKDIAG
+    Pulsar::Diag::Step("boot point (archive fallback)", 0);
+#endif
     BootHook::Exec();
 }
 

@@ -107,7 +107,10 @@ PulsarEngine/AntiCheatDiag.cpp
 build/diag/Code.E.map
 build/diag/Code.J.map
 build/diag/Code.K.map
+build/diag/Code.P.map
 build/diag/Code.pul
+.gitignore
+Pulsar Pack Creator.sln
 build/diag/probe/Code.E.map
 build/diag/probe/Code.J.map
 build/diag/probe/Code.K.map
