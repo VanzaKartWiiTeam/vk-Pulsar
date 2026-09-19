@@ -31,6 +31,9 @@ static_assert(sizeof(file_struct) == 80, "file_struct size");
 static_assert(sizeof(dir_struct) == 836, "dir_struct size");
 static_assert(sizeof(stat) == 88, "stat size");
 
+/* Last errno set by the launcher's SD driver; only meaningful right after a failed call. */
+s32 SDIO_LastErrno();
+
 class SDIO : public IO {
    public:
     SDIO(IOType type, EGG::Heap* heap, EGG::TaskThread* taskThread) : IO(type, heap, taskThread) {

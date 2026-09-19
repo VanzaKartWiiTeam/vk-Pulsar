@@ -25,6 +25,15 @@ struct sd_vtable {
 
 const sd_vtable* __sd_vtable = reinterpret_cast<sd_vtable*>(0x81782e00);
 
+/*
+    The last error the launcher's SD driver set. The RKSYS redirection logs it: a failed
+    open/write on the console only tells us "false", and the errno says whether the folder
+    was missing, the card was full or the file could not be written.
+*/
+s32 SDIO_LastErrno() {
+    return __sd_vtable->errno();
+}
+
 u32 ios_mode_to_sd_mode(u32 mode) {
     switch (mode) {
         case IOS::MODE_WRITE:

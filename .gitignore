@@ -97,6 +97,9 @@ KamekLinker/bin/Release/net8.0/Kamek.runtimeconfig.json
 PulsarEngine/Extra/DebugMenuDriver.cpp.disabled
 KamekLinker/Kamek.exe
 
+# Friivolution detection: kept out of the public tree so the device names aren't a grep away
+PulsarEngine/Friivolution.cpp
+
 # AntiCheat: kept out of the public tree on purpose
 PulsarEngine/AntiCheat.cpp
 PulsarEngine/AntiCheat.hpp
