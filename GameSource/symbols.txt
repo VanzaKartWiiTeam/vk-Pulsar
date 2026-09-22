@@ -820,6 +820,10 @@ CompareEntries__9GhostListFP14GhostListEntryP14GhostListEntry = 0x805e2430
 InitGhostController__Q25Input7ManagerFUcPCQ25Input9RKGInputsb = 0x8052453c
 sInstance__Q25Input7Manager = 0x809bd70c
 
+#Controllers
+UpdateImpl__Q25Input13GCNControllerFRQ25Input5StateRQ25Input7UIState = 0x805201b0
+UpdateImpl__Q25Input13WiiControllerFRQ25Input5StateRQ25Input7UIState = 0x8051fc84
+
 #ControllerHolder
 __vt__Q25Input16ControllerHolder = 0x808b2dd8
 

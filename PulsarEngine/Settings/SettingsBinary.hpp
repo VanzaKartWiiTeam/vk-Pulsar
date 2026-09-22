@@ -45,7 +45,8 @@ struct MiscParams {
     static const u32 version = 1;
     static const u32 index = SECTION_MISC;
     Pulsar::SectionHeader header;
-    u32 reserved[20]; //0xc
+    u32 buttonRemap[4][4]; //0xc [license][ControllerType], see ButtonRemap.hpp; 0 = default buttons
+    u32 reserved[4]; //0x4c
     PulsarCupId lastSelectedCup; //0x5c
     u32 trackCount; //0x60
 };

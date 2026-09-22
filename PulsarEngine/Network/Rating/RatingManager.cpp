@@ -4,6 +4,8 @@
 #include <Network/Rating/RankManager.hpp>
 #include <Network/Rating/RatingStorage.hpp>
 #include <Network/Rating/PlayerRating.hpp>
+#include <Network/Mirror/MirrorReport.hpp>
+#include <Network/Network.hpp>
 #include <PulsarSystem.hpp>
 #include <MarioKartWii/Race/RaceInfo/RaceInfo.hpp>
 #include <MarioKartWii/RKSYS/RKSYSMgr.hpp>
@@ -186,6 +188,10 @@ void UpdatePoints(RacedataScenario* scenario) {
     RKSYS::Mgr* rksys = RKSYS::Mgr::sInstance;
     const bool canPersist = rksys != nullptr && rksys->curLicenseId < Config::MAX_LICENSES;
 
+    // Filled alongside the commit so the dual send reports exactly the numbers that were
+    // written, not a second reading taken afterwards.
+    Mirror::PlayerRecord mirrorRecords[12];
+
     // One flush for the whole commit instead of one per field written.
     Storage::BeginBatch();
     for (u32 i = 0; i < playerCount; ++i) {
@@ -195,6 +201,11 @@ void UpdatePoints(RacedataScenario* scenario) {
 
         scenario->players[i].rating.points = (u16)next;
         lastRaceDeltas[i] = next - oldRating;
+
+        mirrorRecords[i].ratingBefore = (u16)oldRating;
+        mirrorRecords[i].ratingAfter = (u16)next;
+        mirrorRecords[i].position = snapshots[i].position;
+        mirrorRecords[i].battleScore = snapshots[i].battleScore;
 
         if (!snapshots[i].isLocalOwner || !canPersist || stake == RATING_NONE) continue;
 
@@ -209,6 +220,12 @@ void UpdatePoints(RacedataScenario* scenario) {
         }
     }
     Storage::EndBatch();
+
+    // Only ranked races are worth mirroring; an unranked room would add noise to the
+    // leaderboard. Inert while MIRROR_ENABLED is 0.
+    if (ctx.isRanked) {
+        Mirror::CaptureRace(mirrorRecords, playerCount, isBattle, ctx.isVR, Network::REGIONID);
+    }
 }
 
 }  // namespace Manager

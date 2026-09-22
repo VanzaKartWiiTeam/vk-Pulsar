@@ -281,6 +281,10 @@ static const u32 kWhitelistedKamekAddresses[] = {
     0x805515f8, 0x805515e0,
     0x80551710, 0x805516ec,
     
+    // ButtonRemap.cpp - race input remap (vtable UpdateImpl slots)
+    0x808b2e54, // GCNController::UpdateImpl
+    0x808b2e9c, // WiiController::UpdateImpl
+    
     // End marker (used for array size calculation)
     0xFFFFFFFF
 };
