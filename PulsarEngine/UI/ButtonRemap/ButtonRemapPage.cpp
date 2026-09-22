@@ -22,6 +22,10 @@ namespace UI {
 static const u32 textCapacity = 96;
 static const u32 captureTimeout = 60 * 5; //frames
 static const char* textPanes[2] = { "text", "text_light_01" };
+static const char* framePanes[] = {
+    "color_base", "shadow", "fuchi_black", "fuchi_pattern", "color_down",
+    "shadow_top_l", "shadow_top_r", "shadow_bottom_l", "shadow_bottom_r", "hi_light_left", "hi_light_right"
+};
 static const float rowFitChars = 14.0f; //what a SettingsPageSelect button holds at the layout's text size
 
 static void AppendText(wchar_t* dest, const wchar_t* src) {
@@ -110,6 +114,10 @@ UIControl* ButtonRemapPage::CreateControl(u32 id) {
     button.Load(UI::buttonFolder, "SettingsPageSelect", variant, this->activePlayerBitfield, 0, false);
     button.buttonId = id;
     this->SetButtonHandlers(button);
+
+    //Text only: the rows are longer than the page names these boxes were sized for, the brighter
+    //text of the selected row is enough to show where the cursor is
+    for(u32 i = 0; i < sizeof(framePanes) / sizeof(framePanes[0]); ++i) button.SetPaneVisibility(framePanes[i], false);
 
     const lyt::Pane* textPane = button.layout.GetPaneByName(textPanes[0]);
     this->textScaleX[id] = textPane != nullptr ? textPane->scale.x : 1.0f;
