@@ -1,3 +1,13 @@
+/*
+ * Per-license button remapping for VanzaKart
+ * Copyright (c) 2026 ErSossiega
+ *
+ * SPDX-License-Identifier: MIT
+ * Released under the MIT License (https://opensource.org/licenses/MIT): this file can be
+ * used, modified and redistributed freely, as long as this copyright notice and the
+ * license are kept in every copy or substantial portion of it.
+ */
+
 #include <kamek.hpp>
 #include <core/rvl/pad.hpp>
 #include <core/rvl/wpad.hpp>
