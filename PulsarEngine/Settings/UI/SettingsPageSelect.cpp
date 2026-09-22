@@ -1,5 +1,7 @@
 #include <Settings/UI/SettingsPageSelect.hpp>
 #include <Settings/UI/SettingsPanel.hpp>
+#include <UI/ButtonRemap/ButtonRemapPage.hpp>
+#include <Race/ButtonRemap.hpp>
 #include <Settings/Settings.hpp>
 #include <MarioKartWii/UI/Page/Menu/VSSettings.hpp>
 
@@ -8,7 +10,7 @@ namespace UI {
 
 SettingsPageSelect::SettingsPageSelect() {
     externControlCount = 0;
-    internControlCount = Settings::Params::pageCount;
+    internControlCount = Settings::Params::pageCount + 1;
     hasBackButton = true;
     nextPageId = PAGE_NONE;
     titleBmg = BMG_SETTINGS_TITLE;
@@ -75,6 +77,30 @@ UIControl* SettingsPageSelect::CreateControl(u32 id) {
             pageIdx = id - Settings::Params::pulsarPageCount;
         }
         button.SetMessage(bmgOffset + BMG_SETTINGS_PAGE + pageIdx);
+
+        return &button;
+    }
+    if(id == remapButtonId) {
+        PushButton& button = this->pageButtons[id];
+        this->AddControl(this->controlCount++, button, 0);
+
+        char variant[16];
+        snprintf(variant, 16, "Page%d", id);
+
+        button.Load(UI::buttonFolder, "SettingsPageSelect", variant, this->activePlayerBitfield, 0, false);
+        button.buttonId = id;
+        button.SetOnClickHandler(this->onButtonClickHandler, 0);
+        button.SetOnSelectHandler(this->onButtonSelectHandler);
+        button.SetOnDeselectHandler(this->onButtonDeselectHandler);
+
+        wchar_t name[16];
+        const wchar_t* src = ButtonRemap::IsItalian() ? L"Comandi" : L"Controls";
+        u32 len = 0;
+        for(; src[len] != L'\0' && len < 15; ++len) name[len] = src[len];
+        name[len] = L'\0';
+        Text::Info info;
+        info.strings[0] = name;
+        button.SetMessage(BMG_TEXT, &info);
 
         return &button;
     }
@@ -152,6 +178,11 @@ void SettingsPageSelect::OnBackButtonClick(PushButton& button, u32 hudSlotId) {
 
 void SettingsPageSelect::OnButtonClick(PushButton& button, u32 hudSlotId) {
     const u32 selectedPage = button.buttonId;
+    if(selectedPage == remapButtonId) {
+        this->nextPageId = static_cast<PageId>(ButtonRemapPage::id);
+        this->EndStateAnimated(0, button.GetAnimationFrameSize());
+        return;
+    }
 
     SettingsPanel* settingsPanel = ExpSection::GetSection()->GetPulPage<SettingsPanel>();
     if(settingsPanel != nullptr) {
@@ -171,6 +202,17 @@ void SettingsPageSelect::OnButtonClick(PushButton& button, u32 hudSlotId) {
 }
 
 void SettingsPageSelect::OnButtonSelect(PushButton& button, u32 hudSlotId) {
+    if(button.buttonId == remapButtonId) {
+        wchar_t text[64];
+        const wchar_t* src = ButtonRemap::IsItalian() ? L"Cambia i tasti usati in gara." : L"Change the buttons used in races.";
+        u32 len = 0;
+        for(; src[len] != L'\0' && len < 63; ++len) text[len] = src[len];
+        text[len] = L'\0';
+        Text::Info info;
+        info.strings[0] = text;
+        this->bottomText->SetMessage(BMG_TEXT, &info);
+        return;
+    }
     u32 bmgOffset = 0;
     u32 pageIdx = button.buttonId;
     if(button.buttonId >= Settings::Params::pulsarPageCount) {

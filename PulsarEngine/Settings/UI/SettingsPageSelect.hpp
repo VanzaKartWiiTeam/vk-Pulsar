@@ -12,6 +12,7 @@ namespace UI {
 class SettingsPageSelect : public Pages::MenuInteractable {
 public:
     static const PulPageId id = PULPAGE_SETTINGSPAGESELECT;
+    static const u32 remapButtonId = Settings::Params::pageCount; //opens ButtonRemapPage, uses the brctr's "Page7" variant (it has Page0 to Page14)
 
     SettingsPageSelect();
     ~SettingsPageSelect() override {}
@@ -37,7 +38,7 @@ private:
 
     PtmfHolder_2A<SettingsPageSelect, void, PushButton&, u32> onBackButtonClickHandler;
 
-    PushButton pageButtons[Settings::Params::pageCount];
+    PushButton pageButtons[Settings::Params::pageCount + 1];
 };
 
 }
