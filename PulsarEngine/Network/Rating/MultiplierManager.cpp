@@ -2,6 +2,7 @@
 #include <Network/Rating/RatingConfig.hpp>
 #include <Network/Rating/PlayerRating.hpp>
 #include <PulsarSystem.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <core/System/SystemManager.hpp>
 #include <core/rvl/DWC/DWCGHTTP.hpp>
 #include <include/c_string.h>
@@ -69,6 +70,31 @@ void TryDownload() {
     const int request = DWC::GetGHTTPDataEx(Config::MULTIPLIER_URL, 32, true, nullptr, OnDownloaded, nullptr);
     if (request >= 0) sRequested = true;
 }
+
+/*
+    One download per WFC connection rather than one per boot, which is what RR does: a
+    value they change partway through an event then reaches players who are already
+    playing, instead of only those who restart the game.
+
+    The latch is cleared while offline rather than on the connection coming up, because
+    the only caller of TryDownload is BeforeSELECTSend - that runs while already in a
+    room, so from there the transition into online is never observable. A section load
+    does see it: the menus between sessions all report SHUTDOWN.
+
+    RR hangs the equivalent off a per frame hook. This fork has none outside races, and
+    section granularity is enough for something fetched once per session.
+*/
+static void ClearMultiplierWhileOffline() {
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    const bool connected = controller != nullptr &&
+                           controller->connectionState != RKNet::CONNECTIONSTATE_SHUTDOWN;
+    if (connected) return;
+
+    sRequested = false;
+    sValid = false;
+    sRemote = Config::MULTIPLIER_DEFAULT;
+}
+static SectionLoadHook clearMultiplierHook(ClearMultiplierWhileOffline);
 
 float GetRemoteLayer() {
     return sValid ? sRemote : Config::MULTIPLIER_DEFAULT;
@@ -148,6 +174,16 @@ static bool IsEventDay(u8 month, u8 day) {
 
 // -------------------------------------------------------------------- layers
 
+/*
+    The seasonal calendar, read off the console RTC. It is a layer of its own rather than
+    something folded into the remote value, so a date-driven bonus keeps working even when
+    the server cannot be reached.
+
+    This was briefly neutralised while the remote layer pointed at Retro Rewind, because
+    RR has no local calendar and expresses events through that value instead - leaving
+    both active would have paid Christmas twice. With the remote layer back on VanzaKart's
+    own file the two no longer overlap, so the calendar is live again.
+*/
 float GetEventLayer() {
     const Date today = GetToday();
     if (!today.isValid) return 1.0f;
@@ -193,6 +229,7 @@ float Get() {
 #ifdef PROD
     multiplier *= Config::MULTIPLIER;
 #endif
+
     return multiplier;
 }
 

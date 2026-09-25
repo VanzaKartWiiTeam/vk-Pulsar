@@ -95,13 +95,19 @@ void SettingsPanel::OnInit() {
     const Settings::Mgr& settings = Settings::Mgr::Get();
     for(int i = 0; i < Settings::Params::pageCount; ++i) {
         const bool isPulsarPage = i < Settings::Params::pulsarPageCount;
+        //A value past the options a row has (a save from a build that had more of them) would make the
+        //control select a button that doesn't exist and crash, so it falls back to the first option
         for(int radioIdx = 0; radioIdx < Settings::Params::radioCount[i]; ++radioIdx) {
-            this->radioSettings[i][radioIdx] = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), radioIdx)
+            u8 value = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), radioIdx)
                 : settings.GetUserSettingValue(static_cast<Settings::UserType>(i - Settings::Params::pulsarPageCount), radioIdx);
+            if(value >= Settings::Params::buttonsPerPagePerRow[i][radioIdx]) value = 0;
+            this->radioSettings[i][radioIdx] = value;
         }
         for(int scrollerIdx = 0; scrollerIdx < Settings::Params::scrollerCount[i]; ++scrollerIdx) {
-            this->scrollerSettings[i][scrollerIdx] = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), scrollerIdx + 6)
+            u8 value = isPulsarPage ? settings.GetSettingValue(static_cast<Settings::Type>(i), scrollerIdx + 6)
                 : settings.GetUserSettingValue(static_cast<Settings::UserType>(i - Settings::Params::pulsarPageCount), scrollerIdx + 6);
+            if(value >= Settings::Params::optionsPerPagePerScroller[i][scrollerIdx]) value = 0;
+            this->scrollerSettings[i][scrollerIdx] = value;
         }
     }
     MenuInteractable::OnInit();
